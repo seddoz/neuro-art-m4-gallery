@@ -134,8 +134,9 @@ async function loadCatalog() {
 
 function rebuild(list) {
   stateApp.visible = list;
-  gallery.build(list);
-  ui.setResultCount(list.length, stateApp.all.length);
+  const placed = gallery.build(list);
+  // Show how many are rendered in the hall vs how many match the filter.
+  ui.setResultCount(placed.length, list.length);
   select(null);
   applyLook(sd.look());
 }

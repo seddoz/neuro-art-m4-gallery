@@ -56,7 +56,31 @@ const fragmentShader = /* glsl */ `
 `;
 
 const loader = new THREE.TextureLoader();
-loader.crossOrigin = 'anonymous';
+
+// Throttled texture-load queue. Hundreds of full-size JPGs cannot all download
+// at once; this caps concurrency so the gallery stays responsive.
+let active = 0;
+const queue = [];
+function pump() {
+  while (active < CONFIG.TEX_CONCURRENCY && queue.length) {
+    const job = queue.shift();
+    active++;
+    job().finally(() => {
+      active--;
+      pump();
+    });
+  }
+}
+export function enqueueTexture(p) {
+  queue.push(() => p._doLoad());
+  pump();
+}
+
+// Route the image through the same-origin proxy to avoid cross-origin WebGL
+// texture failures (the image host does not send CORS headers).
+function proxiedImage(photo) {
+  return `/img?url=${encodeURIComponent(photo)}`;
+}
 
 export class Painting {
   constructor(data) {
@@ -99,7 +123,8 @@ export class Painting {
 
     this.sizeM = { w, h };
     this.animated = false;
-    this._loadTexture();
+    this.loaded = false;
+    // Texture is loaded via the throttled queue (enqueueTexture), not here.
   }
 
   _placeholder() {
@@ -111,20 +136,26 @@ export class Painting {
     return new THREE.CanvasTexture(c);
   }
 
-  _loadTexture() {
-    if (!this.data.photo) return;
-    loader.load(
-      this.data.photo,
-      (tex) => {
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.anisotropy = 8;
-        this.material.uniforms.uMap.value = tex;
-      },
-      undefined,
-      () => {
-        /* keep placeholder on error */
+  // Returns a promise that resolves when the texture is loaded (or failed).
+  _doLoad() {
+    return new Promise((resolve) => {
+      if (!this.data.photo || this.loaded) {
+        resolve();
+        return;
       }
-    );
+      loader.load(
+        proxiedImage(this.data.photo),
+        (tex) => {
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.anisotropy = 8;
+          this.material.uniforms.uMap.value = tex;
+          this.loaded = true;
+          resolve();
+        },
+        undefined,
+        () => resolve() // keep placeholder on error
+      );
+    });
   }
 
   setAnimated(on) {

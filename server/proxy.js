@@ -145,6 +145,33 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
+  // image proxy: stream remote ahg36 images same-origin so WebGL textures are
+  // not blocked by missing CORS headers on the image host.
+  if (p === '/img') {
+    const target = url.searchParams.get('url');
+    if (!target) return sendJson(res, 400, { error: 'url_required' });
+    let u;
+    try {
+      u = new URL(target);
+    } catch {
+      return sendJson(res, 400, { error: 'bad_url' });
+    }
+    if (!/(^|\.)ahg36\.com$/.test(u.hostname)) {
+      return sendJson(res, 403, { error: 'host_not_allowed' });
+    }
+    https
+      .get(target, { timeout: 20000 }, (up) => {
+        res.writeHead(up.statusCode || 502, {
+          'Content-Type': up.headers['content-type'] || 'image/jpeg',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'public, max-age=86400'
+        });
+        up.pipe(res);
+      })
+      .on('error', (e) => sendJson(res, 502, { error: e.message }));
+    return;
+  }
+
   // health
   if (p === '/sd/health') {
     return sendJson(res, 200, { ok: true, sd: { host: SD_HOST, port: SD_PORT }, hasKey: Boolean(API_KEY) });

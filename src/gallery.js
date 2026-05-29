@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { Painting } from './painting.js';
+import { Painting, enqueueTexture } from './painting.js';
 
 // Builds the 3D exhibition space and lays paintings along its walls using
 // real cm dimensions. Holds the "environment" that the Environment mode
@@ -33,12 +33,17 @@ export class Gallery {
     this.envRoot.clear();
   }
 
-  // Lay paintings around a rectangular hall. Wall length scales with count.
+  // Lay up to CONFIG.PAGE paintings around a rectangular hall in a grid of
+  // ROWS_PER_WALL rows. Returns the placed paintings. Filters run over the
+  // full set upstream; this only caps what is rendered at once.
   build(paintingData) {
     this.clear();
-    const count = paintingData.length;
-    const perWall = Math.max(2, Math.min(CONFIG.MAX_PER_WALL, Math.ceil(count / 4)));
-    const wallLen = perWall * (1.2 + CONFIG.GAP_M) + CONFIG.ROOM_PADDING_M * 2;
+    const place = paintingData.slice(0, CONFIG.PAGE);
+    const rows = CONFIG.ROWS_PER_WALL;
+    const perWall = Math.max(1, Math.ceil(place.length / 4));
+    const cols = Math.max(1, Math.ceil(perWall / rows));
+    const pitch = CONFIG.COL_PITCH_M;
+    const wallLen = cols * pitch + CONFIG.ROOM_PADDING_M * 2;
     this.dims = { wallLen, height: CONFIG.WALL_HEIGHT_M };
 
     this._buildEnvironment(wallLen);
@@ -51,20 +56,23 @@ export class Gallery {
       { dir: new THREE.Vector3(0, 0, -1), pos: new THREE.Vector3(wallLen / 2, 0, 0), rot: -Math.PI / 2 }
     ];
 
+    const span = (cols - 1) * pitch;
     let idx = 0;
-    for (let w = 0; w < walls.length && idx < count; w++) {
+    for (let w = 0; w < walls.length && idx < place.length; w++) {
       const wall = walls[w];
-      const onThis = Math.min(perWall, count - idx);
-      const span = (onThis - 1) * (1.2 + CONFIG.GAP_M);
+      const onThis = Math.min(perWall, place.length - idx);
       for (let i = 0; i < onThis; i++) {
-        const p = new Painting(paintingData[idx++]);
-        const offset = -span / 2 + i * (1.2 + CONFIG.GAP_M);
+        const col = Math.floor(i / rows);
+        const row = i % rows;
+        const p = new Painting(place[idx++]);
+        const offset = -span / 2 + col * pitch;
         const along = wall.dir.clone().multiplyScalar(offset);
         p.group.position.copy(wall.pos).add(along);
-        p.group.position.y = CONFIG.PAINTING_EYE_M;
+        p.group.position.y = CONFIG.ROW_BASE_Y + row * CONFIG.ROW_STEP_Y;
         p.group.rotation.y = wall.rot;
         this.artRoot.add(p.group);
         this.paintings.push(p);
+        enqueueTexture(p);
       }
     }
     return this.paintings;

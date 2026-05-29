@@ -12,7 +12,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': `http://localhost:${PROXY_PORT}`,
-      '/sd': `http://localhost:${PROXY_PORT}`
+      '/sd': `http://localhost:${PROXY_PORT}`,
+      '/img': `http://localhost:${PROXY_PORT}`
     }
   },
   build: {

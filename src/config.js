@@ -4,11 +4,16 @@
 // hence CM_TO_UNIT = 0.01 (1 cm = 0.01 m).
 export const CONFIG = {
   CM_TO_UNIT: 0.01,
-  WALL_HEIGHT_M: 4.0,
-  PAINTING_EYE_M: 1.6, // hang center height
-  GAP_M: 1.2, // spacing between paintings along a wall
+  WALL_HEIGHT_M: 4.5,
   ROOM_PADDING_M: 3.0,
-  MAX_PER_WALL: 8,
+  // How many paintings are placed in the 3D hall at once (a page). Filters
+  // still run over the full working set; this caps geometry + texture memory.
+  PAGE: 48,
+  ROWS_PER_WALL: 2,
+  COL_PITCH_M: 2.4, // horizontal spacing between columns
+  ROW_BASE_Y: 1.4, // bottom row center height
+  ROW_STEP_Y: 1.6, // vertical spacing between rows
+  TEX_CONCURRENCY: 6, // max simultaneous texture downloads
   ACCEPTANCE_IDS: [282910, 282953, 282966],
   SD_ADDR: {
     tlist: '/t_list',
