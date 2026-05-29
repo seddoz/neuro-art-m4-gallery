@@ -106,7 +106,6 @@ function applyLook(look) {
     p.applyLook(look, active);
   }
 }
-sd.onChange((look) => applyLook(look));
 
 // --- catalog + filters ---
 async function loadCatalog() {
@@ -165,6 +164,10 @@ const ui = new UI({
   onEnter: enterPainting,
   onExit: exitToGallery
 });
+
+// Wire SD updates only after `ui` exists; onChange fires immediately and the
+// async health check also emits, both of which call applyLook -> ui.
+sd.onChange((look) => applyLook(look));
 
 // --- render loop ---
 const clock = new THREE.Clock();
