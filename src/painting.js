@@ -8,18 +8,18 @@ import { CONFIG } from './config.js';
 //    manipulation visibly changes the work even when the SD bridge is offline.
 
 const vertexShader = /* glsl */ `
-  uniform float uDepth;      // displacement amount (metres)
+  uniform float uDepth;      // displacement amount (metres), small
   uniform float uTime;
   uniform float uAnim;       // 0 = flat, 1 = animated
   varying vec2 vUv;
-  // luminance sampled in vertex shader needs the texture; we approximate using
-  // a second pass would be costly, so we displace by a smooth radial + uv wave
-  // modulated later in fragment. Keep geometry displacement subtle and stable.
+  // Gentle "breathing" depth: the centre eases toward the viewer and back while
+  // the edges stay pinned, so the quad never tears at the corners. Flat when off.
   void main() {
     vUv = uv;
     vec3 pos = position;
-    float wave = sin((uv.x + uv.y) * 12.0 + uTime * 1.5) * 0.5 + 0.5;
-    pos.z += uAnim * uDepth * wave;
+    float edge = smoothstep(0.0, 0.5, 0.5 - distance(uv, vec2(0.5))); // 0 at edge, ~1 at centre
+    float breathe = sin(uTime * 1.1) * 0.5 + 0.5;                     // 0..1
+    pos.z += uAnim * uDepth * edge * breathe;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
   }
 `;
@@ -89,14 +89,14 @@ export class Painting {
     const h = Math.max(0.05, data.heightCm * CONFIG.CM_TO_UNIT);
 
     // Subdivision lets the vertex displacement read as depth without being heavy.
-    const geo = new THREE.PlaneGeometry(w, h, 48, 48);
+    const geo = new THREE.PlaneGeometry(w, h, 16, 16);
 
     this.material = new THREE.ShaderMaterial({
       vertexShader,
       fragmentShader,
       uniforms: {
         uMap: { value: this._placeholder() },
-        uDepth: { value: Math.min(0.25, Math.max(w, h) * 0.18) },
+        uDepth: { value: Math.min(0.05, Math.max(w, h) * 0.05) },
         uTime: { value: 0 },
         uAnim: { value: 0 },
         uIntensity: { value: 0 },

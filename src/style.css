@@ -60,6 +60,8 @@ body {
 }
 .field.row { display: flex; gap: 8px; }
 .field.row button { flex: 1; }
+#page-nav { align-items: center; }
+#page-ind { white-space: nowrap; text-align: center; }
 button {
   background: var(--accent); color: #07120d; border: 0; border-radius: 8px;
   padding: 9px 12px; cursor: pointer; font-weight: 600; font-size: 13px;

@@ -10,9 +10,9 @@ export const CONFIG = {
   // still run over the full working set; this caps geometry + texture memory.
   PAGE: 48,
   ROWS_PER_WALL: 2,
-  COL_PITCH_M: 2.4, // horizontal spacing between columns
-  ROW_BASE_Y: 1.4, // bottom row center height
-  ROW_STEP_Y: 1.6, // vertical spacing between rows
+  COL_PITCH_M: 2.2, // horizontal spacing between columns
+  ROW_BASE_Y: 1.35, // bottom row center height
+  ROW_STEP_Y: 1.5, // vertical spacing between rows
   TEX_CONCURRENCY: 6, // max simultaneous texture downloads
   ACCEPTANCE_IDS: [282910, 282953, 282966],
   SD_ADDR: {

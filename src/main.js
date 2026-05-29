@@ -14,8 +14,8 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a0a0f);
-scene.fog = new THREE.FogExp2(0x0a0a0f, 0.012);
+scene.background = new THREE.Color(0x14141c);
+scene.fog = new THREE.FogExp2(0x14141c, 0.004);
 
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 500);
 camera.position.set(0, 1.7, 8);
@@ -32,7 +32,9 @@ const sd = new SDController();
 const stateApp = {
   mode: 'environment',
   all: [],
+  filtered: [],
   visible: [],
+  page: 0,
   selected: null,
   animating: false,
   cameraTween: null
@@ -66,6 +68,18 @@ function select(p) {
   applyLook(sd.look());
 }
 
+// A good default view: stand inside the room looking at the front wall, so the
+// paintings (not the empty centre) are framed.
+function galleryView() {
+  const L = gallery.dims ? gallery.dims.wallLen : 16;
+  const z = -L / 2; // front wall
+  const dist = Math.min(8, L * 0.42);
+  return {
+    pos: new THREE.Vector3(0, 2.0, z + dist),
+    target: new THREE.Vector3(0, 1.8, z + 0.6)
+  };
+}
+
 // --- enter / exit camera moves ---
 function enterPainting() {
   const p = stateApp.selected;
@@ -73,16 +87,21 @@ function enterPainting() {
   const worldPos = new THREE.Vector3();
   p.mesh.getWorldPosition(worldPos);
   const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(p.group.quaternion);
-  const dist = Math.max(p.sizeM.w, p.sizeM.h) * 1.4 + 0.6;
-  const camTarget = worldPos.clone().add(normal.multiplyScalar(dist));
-  tweenCamera(camTarget, worldPos);
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(p.group.quaternion);
+  // Frame so the whole painting fits the visible area; shift left so the right
+  // control panel does not cover it.
+  const dist = Math.max(p.sizeM.w, p.sizeM.h) * 1.7 + 0.5;
+  const shift = right.multiplyScalar(p.sizeM.w * 0.35);
+  const camTarget = worldPos.clone().add(normal.multiplyScalar(dist)).add(shift);
+  tweenCamera(camTarget, worldPos.clone().add(shift));
   p.setAnimated(true);
   stateApp.animating = true;
   ui.setAnimationLabel(true);
 }
 
 function exitToGallery() {
-  tweenCamera(new THREE.Vector3(0, 1.7, 8), new THREE.Vector3(0, 1.6, 0));
+  const v = galleryView();
+  tweenCamera(v.pos, v.target);
 }
 
 function tweenCamera(toPos, toTarget) {
@@ -132,13 +151,38 @@ async function loadCatalog() {
   ui.hideLoading();
 }
 
+// A new filter result: reset to page 0 and render.
 function rebuild(list) {
-  stateApp.visible = list;
-  const placed = gallery.build(list);
-  // Show how many are rendered in the hall vs how many match the filter.
-  ui.setResultCount(placed.length, list.length);
+  stateApp.filtered = list;
+  stateApp.page = 0;
+  renderPage(true);
+}
+
+// Render the current page of the filtered set into the hall.
+function renderPage(reframe) {
+  const total = stateApp.filtered.length;
+  const pages = Math.max(1, Math.ceil(total / CONFIG.PAGE));
+  stateApp.page = Math.min(Math.max(0, stateApp.page), pages - 1);
+  const start = stateApp.page * CONFIG.PAGE;
+  const slice = stateApp.filtered.slice(start, start + CONFIG.PAGE);
+  stateApp.visible = slice;
+  gallery.build(slice);
+  ui.setResultCount({
+    from: total ? start + 1 : 0,
+    to: start + slice.length,
+    total,
+    page: stateApp.page + 1,
+    pages
+  });
+  ui.setPageNav(stateApp.page > 0, stateApp.page < pages - 1);
   select(null);
   applyLook(sd.look());
+  if (reframe) {
+    const v = galleryView();
+    camera.position.copy(v.pos);
+    controls.target.copy(v.target);
+    stateApp.cameraTween = null;
+  }
 }
 
 // --- UI handlers ---
@@ -149,6 +193,14 @@ const ui = new UI({
   },
   onApplyFilters: (filters) => {
     rebuild(applyFilters(stateApp.all, filters));
+  },
+  onPrevPage: () => {
+    stateApp.page -= 1;
+    renderPage(true);
+  },
+  onNextPage: () => {
+    stateApp.page += 1;
+    renderPage(true);
   },
   onSD: (kind, v) => {
     if (kind === 'tlist') sd.setTList(v);

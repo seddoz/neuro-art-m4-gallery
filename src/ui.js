@@ -35,6 +35,12 @@ export class UI {
       this.h.onApplyFilters(this.readFilters());
     });
 
+    // Paging through the filtered stock
+    this.prevBtn = document.getElementById('prev-page');
+    this.nextBtn = document.getElementById('next-page');
+    this.prevBtn.addEventListener('click', () => this.h.onPrevPage());
+    this.nextBtn.addEventListener('click', () => this.h.onNextPage());
+
     // SD sliders
     this._slider('s-tlist', 'o-tlist', (v) => this.h.onSD('tlist', v));
     this._slider('s-guidance', 'o-guidance', (v) => this.h.onSD('guidance', v));
@@ -77,8 +83,16 @@ export class UI {
     }
   }
 
-  setResultCount(shown, total) {
-    document.getElementById('result-count').textContent = `Showing ${shown}${total ? ` of ${total}` : ''} paintings`;
+  setResultCount({ from, to, total, page, pages }) {
+    document.getElementById('result-count').textContent =
+      total > 0 ? `Showing ${from}-${to} of ${total} paintings` : 'No paintings match these filters';
+    const ind = document.getElementById('page-ind');
+    if (ind) ind.textContent = `Page ${page}/${pages}`;
+  }
+
+  setPageNav(hasPrev, hasNext) {
+    if (this.prevBtn) this.prevBtn.disabled = !hasPrev;
+    if (this.nextBtn) this.nextBtn.disabled = !hasNext;
   }
 
   setSelected(p) {

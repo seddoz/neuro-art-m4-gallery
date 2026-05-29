@@ -20,10 +20,14 @@ export class Gallery {
 
   _buildLights() {
     // Neutral, fixed lighting. Lighting is intentionally NOT a user control in M4.
-    this.scene.add(new THREE.HemisphereLight(0xbfc4d6, 0x14141c, 0.9));
-    const key = new THREE.DirectionalLight(0xffffff, 1.1);
-    key.position.set(6, 10, 8);
+    this.scene.add(new THREE.HemisphereLight(0xdfe3f0, 0x20202c, 1.15));
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+    const key = new THREE.DirectionalLight(0xffffff, 1.0);
+    key.position.set(6, 12, 8);
     this.scene.add(key);
+    const fill = new THREE.DirectionalLight(0x9aa6c8, 0.5);
+    fill.position.set(-8, 6, -6);
+    this.scene.add(fill);
   }
 
   clear() {
@@ -82,19 +86,28 @@ export class Gallery {
     const h = CONFIG.WALL_HEIGHT_M;
 
     // Floor
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(wallLen, wallLen),
-      new THREE.MeshStandardMaterial({ color: 0x0e0e14, roughness: 0.95 })
-    );
+    this.floorMat = new THREE.MeshStandardMaterial({ color: 0x20202a, roughness: 0.9 });
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(wallLen, wallLen), this.floorMat);
     floor.rotation.x = -Math.PI / 2;
     this.envRoot.add(floor);
 
-    // Walls (4). Stored so Environment mode can morph them.
+    // Ceiling (keeps the room from reading as an open void).
+    this.ceilingMat = new THREE.MeshStandardMaterial({ color: 0x191922, roughness: 1.0 });
+    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(wallLen, wallLen), this.ceilingMat);
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.y = h;
+    this.envRoot.add(ceiling);
+
+    // Walls (4). Flat geometry. Stored so Environment mode can re-tint them.
     this.wallMeshes = [];
-    const wallMat = () =>
-      new THREE.MeshStandardMaterial({ color: 0x15151d, roughness: 0.9, metalness: 0.05 });
     const mkWall = (x, z, ry) => {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(wallLen, h, 24, 8), wallMat());
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0x2c2c38,
+        roughness: 0.92,
+        metalness: 0.04,
+        emissive: 0x000000
+      });
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(wallLen, h), mat);
       m.position.set(x, h / 2, z);
       m.rotation.y = ry;
       this.envRoot.add(m);
@@ -105,43 +118,47 @@ export class Gallery {
     mkWall(-wallLen / 2, 0, Math.PI / 2);
     mkWall(wallLen / 2, 0, -Math.PI / 2);
 
-    // Structural element that Environment mode grows/morphs: a ring of pillars.
+    // Architectural columns in the 4 corners (NOT the middle of the room).
+    // Environment mode grows/illuminates these to reshape the space.
     this.structure = new THREE.Group();
-    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x222232, roughness: 0.6, emissive: 0x000000 });
-    this._pillarMat = pillarMat;
-    const r = wallLen * 0.28;
-    const n = 12;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2;
-      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, h * 0.9, 12), pillarMat);
-      pillar.position.set(Math.cos(a) * r, (h * 0.9) / 2, Math.sin(a) * r);
+    this._pillarMat = new THREE.MeshStandardMaterial({
+      color: 0x3a3a48,
+      roughness: 0.6,
+      metalness: 0.1,
+      emissive: 0x000000
+    });
+    const inset = 0.5;
+    const c = wallLen / 2 - inset;
+    for (const [cx, cz] of [[-c, -c], [c, -c], [-c, c], [c, c]]) {
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, h, 16), this._pillarMat);
+      pillar.position.set(cx, h / 2, cz);
       this.structure.add(pillar);
     }
     this.envRoot.add(this.structure);
   }
 
-  // Environment manipulation: SD look reshapes the SPACE (wall displacement +
-  // structure growth + surface tint), clearly distinct from Painting mode.
+  // Environment manipulation: SD look reshapes the SPACE via surface tint,
+  // emissive glow, fog and corner-column growth - clearly distinct from
+  // Painting mode and WITHOUT waving the walls.
   applyEnvironmentLook(look, active) {
     if (!this.wallMeshes) return;
-    const amt = active ? look.intensity : 0;
+    const amt = active ? look.intensity : 0; // 0..1 energy
+    const hue = look.hueShift;
+
     for (const w of this.wallMeshes) {
-      const pos = w.geometry.attributes.position;
-      // displace wall vertices into a relief that grows with intensity
-      for (let i = 0; i < pos.count; i++) {
-        const x = pos.getX(i);
-        const y = pos.getY(i);
-        const base = w.geometry.userData.base || (w.geometry.userData.base = pos.array.slice());
-        const z = Math.sin(x * 1.5 + y * 1.5) * amt * 0.6;
-        pos.setZ(i, z);
-      }
-      pos.needsUpdate = true;
-      w.material.color.setHSL(0.6 + look.hueShift * 0.3 * (active ? 1 : 0), 0.2, 0.08 + amt * 0.15);
+      w.material.color.setHSL(0.62, active ? 0.12 : 0.04, 0.16 + amt * 0.06);
+      w.material.emissive.setHSL(hue, 0.6, active ? look.blend * 0.12 : 0);
     }
+    if (this.floorMat) this.floorMat.color.setHSL(0.62, active ? 0.1 : 0.02, 0.12 + amt * 0.04);
+
     if (this.structure) {
-      const s = active ? 0.5 + look.contrast * 2.5 : 1;
+      const s = active ? 0.7 + look.contrast * 1.6 : 1;
       this.structure.scale.set(1, s, 1);
-      this._pillarMat.emissive.setHSL(look.hueShift, 0.6, active ? look.blend * 0.35 : 0);
+      this._pillarMat.emissive.setHSL(hue, 0.7, active ? 0.1 + look.intensity * 0.4 : 0.02);
+    }
+
+    if (this.scene.fog) {
+      this.scene.fog.density = 0.004 + (active ? amt * 0.01 : 0);
     }
   }
 
