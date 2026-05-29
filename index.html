@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0a0a0f" />
+    <title>Neuro Art Gallery - Unified 3D Viewer</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+
+      <div id="loading" class="overlay">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading gallery...</div>
+      </div>
+
+      <header id="topbar">
+        <div class="brand">Neuro Art <span>Gallery</span></div>
+        <div id="mode-toggle" class="seg">
+          <button data-mode="environment" class="active">Environment</button>
+          <button data-mode="painting">Painting</button>
+        </div>
+        <button id="panel-btn" class="icon-btn" aria-label="Toggle controls">Controls</button>
+      </header>
+
+      <aside id="panel">
+        <section class="panel-group" id="filters-group">
+          <h3>Filters</h3>
+          <div class="field"><label>Collection</label><select id="f-collection"></select></div>
+          <div class="field"><label>Location</label><select id="f-location"></select></div>
+          <div class="field"><label>Artist</label><select id="f-artist"></select></div>
+          <div class="field"><label>Category</label><select id="f-category"></select></div>
+          <div class="field"><label>Size</label><select id="f-size"></select></div>
+          <div class="field row">
+            <button id="apply-filters">Apply</button>
+            <button id="reset-filters" class="ghost">Reset</button>
+          </div>
+          <div class="hint" id="result-count"></div>
+        </section>
+
+        <section class="panel-group" id="sd-group">
+          <h3>Stream Diffusion <span id="sd-status" class="dot" title="bridge status"></span></h3>
+          <div class="field"><label>Steps / t_list <output id="o-tlist">4</output></label>
+            <input type="range" id="s-tlist" min="1" max="50" step="1" value="4" /></div>
+          <div class="field"><label>Guidance scale <output id="o-guidance">1.2</output></label>
+            <input type="range" id="s-guidance" min="0" max="20" step="0.1" value="1.2" /></div>
+          <div class="field"><label>Delta <output id="o-delta">0.7</output></label>
+            <input type="range" id="s-delta" min="0" max="1" step="0.01" value="0.7" /></div>
+          <div class="field"><label>Seed <output id="o-seed">42</output></label>
+            <input type="range" id="s-seed" min="0" max="100000" step="1" value="42" /></div>
+        </section>
+
+        <section class="panel-group" id="painting-group">
+          <h3>Selected painting</h3>
+          <div id="sel-meta" class="hint">None selected. Click a painting.</div>
+          <div class="field row">
+            <button id="anim-toggle">Animation On</button>
+            <button id="enter-btn" class="ghost">Enter painting</button>
+          </div>
+          <div class="field row">
+            <button id="exit-btn" class="ghost">Back to gallery</button>
+          </div>
+        </section>
+      </aside>
+
+      <div id="hud">
+        <div id="hud-help">Drag to look - scroll to zoom - click a painting to select</div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

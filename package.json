@@ -1,0 +1,19 @@
+{
+  "name": "neuro-art-m4-gallery",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Milestone 4 - Unified Three.js gallery for the Neuro Art Interactive Platform (AHG36). Full-stock filters, depth/enter-painting, manual Stream Diffusion controls, environment vs painting toggle.",
+  "scripts": {
+    "proxy": "node server/proxy.js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}
