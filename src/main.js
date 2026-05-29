@@ -17,7 +17,9 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x14141c);
 scene.fog = new THREE.FogExp2(0x14141c, 0.004);
 
-const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 500);
+// Tight near/far range keeps depth-buffer precision high so distant paintings
+// stay crisp and do not z-fight with their frames.
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.25, 160);
 camera.position.set(0, 1.7, 8);
 
 const controls = new OrbitControls(camera, renderer.domElement);

@@ -49,7 +49,7 @@ async function getJson(url) {
 
 // Pull the full stock by paging get-products. Falls back to mock data if the
 // list endpoint is unauthorized/unreachable so the gallery still renders.
-export async function fetchAllPaintings({ pageSize = 50, max = 600, onProgress } = {}) {
+export async function fetchAllPaintings({ pageSize = 100, max = 5000, onProgress } = {}) {
   const out = [];
   let page = 1;
   try {
