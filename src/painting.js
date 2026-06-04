@@ -110,18 +110,30 @@ export class Painting {
 
     this.mesh = new THREE.Mesh(geo, this.material);
     this.mesh.userData.painting = this;
-    // Tiny forward offset keeps the canvas off the frame plane (prevents the
-    // z-fighting flicker) while still reading as flush against it.
-    this.mesh.position.z = 0.006;
-    this.mesh.renderOrder = 1;
+    // Forward offset keeps the canvas clearly in front of the frame plane.
+    this.mesh.position.z = 0.01;
+    this.mesh.renderOrder = 2;
 
-    // Frame: same footprint as the painting, half as thin, black, snug to the
-    // back of the canvas (no visible border from the front).
+    // Frame: a black backing box kept slightly SMALLER than the canvas so the
+    // canvas always overhangs and fully occludes the frame's front face from
+    // every angle. The front face is also recessed well behind the canvas and
+    // the material uses polygon offset, so the two parallel planes can never
+    // z-fight (the cause of the black edge flicker seen while the camera moved).
     const frameDepth = Math.max(0.02, data.depthCm * CONFIG.CM_TO_UNIT * 0.5);
-    const frameGeo = new THREE.BoxGeometry(w, h, frameDepth);
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.8, metalness: 0.1 });
+    const frameInset = 0.985; // canvas overhangs the frame by ~1.5%
+    const frameGeo = new THREE.BoxGeometry(w * frameInset, h * frameInset, frameDepth);
+    const frameMat = new THREE.MeshStandardMaterial({
+      color: 0x000000,
+      roughness: 0.8,
+      metalness: 0.1,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1
+    });
     this.frame = new THREE.Mesh(frameGeo, frameMat);
-    this.frame.position.z = -frameDepth / 2;
+    this.frame.renderOrder = 1;
+    // Recess the frame so its front face sits clearly behind the canvas plane.
+    this.frame.position.z = -frameDepth / 2 - 0.004;
 
     this.group = new THREE.Group();
     this.group.add(this.frame);
