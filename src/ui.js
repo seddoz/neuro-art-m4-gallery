@@ -32,7 +32,17 @@ export class UI {
     document.getElementById('apply-filters').addEventListener('click', () => this.h.onApplyFilters(this.readFilters()));
     document.getElementById('reset-filters').addEventListener('click', () => {
       for (const sel of Object.values(this.selectors)) sel.selectedIndex = 0;
+      const idInput = document.getElementById('f-id');
+      if (idInput) idInput.value = '';
       this.h.onApplyFilters(this.readFilters());
+    });
+
+    // Find a single painting by ID
+    const idInput = document.getElementById('f-id');
+    const goId = document.getElementById('go-id');
+    if (goId) goId.addEventListener('click', () => this.h.onFindById(idInput.value.trim()));
+    if (idInput) idInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') this.h.onFindById(idInput.value.trim());
     });
 
     // Paging through the filtered stock

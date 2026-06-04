@@ -36,6 +36,8 @@ export function normalize(raw) {
     decade: clean(raw.Decades),
     technique: clean(raw.Technique),
     year: clean(raw.Year),
+    size: clean(raw.Size),
+    sizeLabel: clean(raw.Size_Label),
     priceEur: raw.Price && raw.Price.EUR != null ? raw.Price.EUR : null,
     status: clean(raw.Status) || 'unavailable'
   };
@@ -92,15 +94,8 @@ export function buildFacets(paintings) {
     location: facet('location'),
     artist: facet('artist'),
     category: facet('category'),
-    size: ['All', 'Small (<=60cm)', 'Medium (60-100cm)', 'Large (>100cm)']
+    size: ['All', ...['XS', 'S', 'M', 'L', 'XL'].filter((s) => paintings.some((p) => p.size === s))]
   };
-}
-
-function sizeBucket(p) {
-  const m = Math.max(p.widthCm, p.heightCm);
-  if (m <= 60) return 'Small (<=60cm)';
-  if (m <= 100) return 'Medium (60-100cm)';
-  return 'Large (>100cm)';
 }
 
 // Apply the active session filters. 'All' means no constraint on that field.
@@ -110,7 +105,7 @@ export function applyFilters(paintings, filters) {
     if (filters.location && filters.location !== 'All' && p.location !== filters.location) return false;
     if (filters.artist && filters.artist !== 'All' && p.artist !== filters.artist) return false;
     if (filters.category && filters.category !== 'All' && p.category !== filters.category) return false;
-    if (filters.size && filters.size !== 'All' && sizeBucket(p) !== filters.size) return false;
+    if (filters.size && filters.size !== 'All' && p.size !== filters.size) return false;
     return true;
   });
 }

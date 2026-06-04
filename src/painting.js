@@ -110,18 +110,18 @@ export class Painting {
 
     this.mesh = new THREE.Mesh(geo, this.material);
     this.mesh.userData.painting = this;
-    // Stand the canvas clearly in FRONT of the frame so the two surfaces never
-    // share a depth plane (the previous coplanar setup caused z-fighting: black
-    // flickering edges and a fully black face while breathing).
-    this.mesh.position.z = 0.04;
+    // Tiny forward offset keeps the canvas off the frame plane (prevents the
+    // z-fighting flicker) while still reading as flush against it.
+    this.mesh.position.z = 0.006;
     this.mesh.renderOrder = 1;
 
-    // Frame block sits behind the canvas; its front face is recessed ~1 cm.
-    const frameDepth = Math.max(0.05, data.depthCm * CONFIG.CM_TO_UNIT);
-    const frameGeo = new THREE.BoxGeometry(w * 1.08, h * 1.08, frameDepth);
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x1a1a22, roughness: 0.8, metalness: 0.1 });
+    // Frame: same footprint as the painting, half as thin, black, snug to the
+    // back of the canvas (no visible border from the front).
+    const frameDepth = Math.max(0.02, data.depthCm * CONFIG.CM_TO_UNIT * 0.5);
+    const frameGeo = new THREE.BoxGeometry(w, h, frameDepth);
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.8, metalness: 0.1 });
     this.frame = new THREE.Mesh(frameGeo, frameMat);
-    this.frame.position.z = -frameDepth / 2 - 0.01;
+    this.frame.position.z = -frameDepth / 2;
 
     this.group = new THREE.Group();
     this.group.add(this.frame);

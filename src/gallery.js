@@ -86,7 +86,7 @@ export class Gallery {
     const h = CONFIG.WALL_HEIGHT_M;
 
     // Floor
-    this.floorMat = new THREE.MeshStandardMaterial({ color: 0x20202a, roughness: 0.9 });
+    this.floorMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.9 });
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(wallLen, wallLen), this.floorMat);
     floor.rotation.x = -Math.PI / 2;
     this.envRoot.add(floor);
@@ -102,7 +102,7 @@ export class Gallery {
     this.wallMeshes = [];
     const mkWall = (x, z, ry) => {
       const mat = new THREE.MeshStandardMaterial({
-        color: 0x2c2c38,
+        color: 0xffffff,
         roughness: 0.92,
         metalness: 0.04,
         emissive: 0x000000
@@ -118,43 +118,19 @@ export class Gallery {
     mkWall(-wallLen / 2, 0, Math.PI / 2);
     mkWall(wallLen / 2, 0, -Math.PI / 2);
 
-    // Architectural columns in the 4 corners (NOT the middle of the room).
-    // Environment mode grows/illuminates these to reshape the space.
-    this.structure = new THREE.Group();
-    this._pillarMat = new THREE.MeshStandardMaterial({
-      color: 0x3a3a48,
-      roughness: 0.6,
-      metalness: 0.1,
-      emissive: 0x000000
-    });
-    const inset = 0.5;
-    const c = wallLen / 2 - inset;
-    for (const [cx, cz] of [[-c, -c], [c, -c], [-c, c], [c, c]]) {
-      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, h, 16), this._pillarMat);
-      pillar.position.set(cx, h / 2, cz);
-      this.structure.add(pillar);
-    }
-    this.envRoot.add(this.structure);
+    // Corner columns removed per client request; room is left clear.
   }
 
-  // Environment manipulation: SD look reshapes the SPACE via surface tint,
-  // emissive glow, fog and corner-column growth - clearly distinct from
-  // Painting mode and WITHOUT waving the walls.
+  // Environment manipulation: base colors stay fixed (white walls, black floor).
+  // Environment mode only adds a subtle emissive glow + fog so the defaults are
+  // preserved, clearly distinct from Painting mode and WITHOUT waving the walls.
   applyEnvironmentLook(look, active) {
     if (!this.wallMeshes) return;
     const amt = active ? look.intensity : 0; // 0..1 energy
     const hue = look.hueShift;
 
     for (const w of this.wallMeshes) {
-      w.material.color.setHSL(0.62, active ? 0.12 : 0.04, 0.16 + amt * 0.06);
-      w.material.emissive.setHSL(hue, 0.6, active ? look.blend * 0.12 : 0);
-    }
-    if (this.floorMat) this.floorMat.color.setHSL(0.62, active ? 0.1 : 0.02, 0.12 + amt * 0.04);
-
-    if (this.structure) {
-      const s = active ? 0.7 + look.contrast * 1.6 : 1;
-      this.structure.scale.set(1, s, 1);
-      this._pillarMat.emissive.setHSL(hue, 0.7, active ? 0.1 + look.intensity * 0.4 : 0.02);
+      w.material.emissive.setHSL(hue, 0.6, active ? look.blend * 0.08 : 0);
     }
 
     if (this.scene.fog) {

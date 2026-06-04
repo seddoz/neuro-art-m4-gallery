@@ -196,6 +196,23 @@ const ui = new UI({
   onApplyFilters: (filters) => {
     rebuild(applyFilters(stateApp.all, filters));
   },
+  onFindById: async (id) => {
+    if (!id) return;
+    let p = stateApp.all.find((x) => String(x.id) === String(id));
+    if (!p) {
+      try {
+        p = await fetchPainting(id);
+        if (p && !stateApp.all.some((x) => String(x.id) === String(p.id))) stateApp.all.push(p);
+      } catch {
+        /* not found / not public */
+      }
+    }
+    if (p) {
+      rebuild([p]);
+    } else {
+      ui.setResultCount({ from: 0, to: 0, total: 0, page: 1, pages: 1 });
+    }
+  },
   onPrevPage: () => {
     stateApp.page -= 1;
     renderPage(true);
