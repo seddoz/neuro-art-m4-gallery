@@ -76,6 +76,15 @@ export function enqueueTexture(p) {
   pump();
 }
 
+// Drop all pending (not-yet-started) texture jobs. Called on every gallery
+// rebuild/page change so a new page's textures are not stuck behind hundreds of
+// stale jobs from the page we just left (the cause of "next/prev doesn't load"
+// at high paintings-per-wall counts). In-flight loads finish harmlessly because
+// disposed paintings short-circuit in _doLoad.
+export function resetTextureQueue() {
+  queue.length = 0;
+}
+
 // Route the image through the same-origin proxy to avoid cross-origin WebGL
 // texture failures (the image host does not send CORS headers).
 function proxiedImage(photo) {
@@ -157,13 +166,19 @@ export class Painting {
   // Returns a promise that resolves when the texture is loaded (or failed).
   _doLoad() {
     return new Promise((resolve) => {
-      if (!this.data.photo || this.loaded) {
+      // Skip stale jobs for paintings removed on a page change/rebuild.
+      if (this.disposed || !this.data.photo || this.loaded) {
         resolve();
         return;
       }
       loader.load(
         proxiedImage(this.data.photo),
         (tex) => {
+          if (this.disposed) {
+            tex.dispose();
+            resolve();
+            return;
+          }
           tex.colorSpace = THREE.SRGBColorSpace;
           tex.anisotropy = 8;
           this.material.uniforms.uMap.value = tex;
@@ -196,6 +211,7 @@ export class Painting {
   }
 
   dispose() {
+    this.disposed = true;
     this.mesh.geometry.dispose();
     this.material.dispose();
     this.frame.geometry.dispose();

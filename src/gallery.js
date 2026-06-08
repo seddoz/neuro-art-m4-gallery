@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { Painting, enqueueTexture } from './painting.js';
+import { Painting, enqueueTexture, resetTextureQueue } from './painting.js';
 
 // Builds the 3D exhibition space and lays paintings along its walls using
 // real cm dimensions. Holds the "environment" that the Environment mode
@@ -31,6 +31,10 @@ export class Gallery {
   }
 
   clear() {
+    // Drop pending texture jobs first so the next page is not queued behind the
+    // jobs of the page we are leaving, then dispose (marks paintings disposed so
+    // any in-flight loads short-circuit).
+    resetTextureQueue();
     for (const p of this.paintings) p.dispose();
     this.paintings = [];
     this.artRoot.clear();
