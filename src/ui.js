@@ -1,3 +1,5 @@
+import { CONFIG } from './config.js';
+
 // DOM control panel wiring. Pure DOM (no framework) to keep the bundle small.
 // Emits user intents via the handlers passed in the constructor.
 export class UI {
@@ -51,6 +53,36 @@ export class UI {
     this.prevBtn.addEventListener('click', () => this.h.onPrevPage());
     this.nextBtn.addEventListener('click', () => this.h.onNextPage());
 
+    // Layout sliders (labels update live; gallery rebuild on Apply / presets).
+    this.layoutInputs = {
+      perWall: document.getElementById('s-per-wall'),
+      rows: document.getElementById('s-rows'),
+      colPitch: document.getElementById('s-col-pitch'),
+      rowStep: document.getElementById('s-row-step')
+    };
+    this.layoutOutputs = {
+      perWall: document.getElementById('o-per-wall'),
+      rows: document.getElementById('o-rows'),
+      colPitch: document.getElementById('o-col-pitch'),
+      rowStep: document.getElementById('o-row-step')
+    };
+    this.layoutCap = document.getElementById('layout-cap');
+    for (const [key, input] of Object.entries(this.layoutInputs)) {
+      if (!input) continue;
+      input.addEventListener('input', () => this._syncLayoutLabels());
+    }
+    document.getElementById('apply-layout')?.addEventListener('click', () => {
+      this.h.onApplyLayout(this.readLayout());
+    });
+    document.getElementById('tight-layout')?.addEventListener('click', () => {
+      this.setLayout({ perWall: 16, rows: 2, colPitch: 0.45, rowStep: 0.85 });
+      this.h.onApplyLayout(this.readLayout());
+    });
+    document.getElementById('reset-layout')?.addEventListener('click', () => {
+      this.setLayout({ ...CONFIG.LAYOUT_DEFAULT });
+      this.h.onApplyLayout(this.readLayout());
+    });
+
     // SD sliders
     this._slider('s-tlist', 'o-tlist', (v) => this.h.onSD('tlist', v));
     this._slider('s-guidance', 'o-guidance', (v) => this.h.onSD('guidance', v));
@@ -77,6 +109,35 @@ export class UI {
     const f = {};
     for (const [k, sel] of Object.entries(this.selectors)) f[k] = sel.value;
     return f;
+  }
+
+  readLayout() {
+    return {
+      perWall: parseInt(this.layoutInputs.perWall?.value || '12', 10),
+      rows: parseInt(this.layoutInputs.rows?.value || '2', 10),
+      colPitch: parseFloat(this.layoutInputs.colPitch?.value || '2.2'),
+      rowStep: parseFloat(this.layoutInputs.rowStep?.value || '1.5')
+    };
+  }
+
+  setLayout(layout) {
+    if (this.layoutInputs.perWall) this.layoutInputs.perWall.value = layout.perWall;
+    if (this.layoutInputs.rows) this.layoutInputs.rows.value = layout.rows;
+    if (this.layoutInputs.colPitch) this.layoutInputs.colPitch.value = layout.colPitch;
+    if (this.layoutInputs.rowStep) this.layoutInputs.rowStep.value = layout.rowStep;
+    this._syncLayoutLabels();
+  }
+
+  _syncLayoutLabels() {
+    const L = this.readLayout();
+    if (this.layoutOutputs.perWall) this.layoutOutputs.perWall.textContent = L.perWall;
+    if (this.layoutOutputs.rows) this.layoutOutputs.rows.textContent = L.rows;
+    if (this.layoutOutputs.colPitch) this.layoutOutputs.colPitch.textContent = L.colPitch.toFixed(1);
+    if (this.layoutOutputs.rowStep) this.layoutOutputs.rowStep.textContent = L.rowStep.toFixed(2);
+    if (this.layoutCap) {
+      const total = L.perWall * 4;
+      this.layoutCap.textContent = `Up to ${total} paintings in room (${L.perWall} × 4 walls)`;
+    }
   }
 
   populateFilters(facets) {

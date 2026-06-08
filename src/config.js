@@ -15,6 +15,15 @@ export const CONFIG = {
   ROW_STEP_Y: 1.5, // vertical spacing between rows
   TEX_CONCURRENCY: 6, // max simultaneous texture downloads
   ACCEPTANCE_IDS: [282910, 282953, 282966],
+  // Default gallery layout (overridden live by Layout panel sliders).
+  LAYOUT_DEFAULT: {
+    perWall: 12,
+    rows: 2,
+    colPitch: 2.2,
+    rowStep: 1.5
+  },
+  LAYOUT_MAX_PER_WALL: 24,
+  LAYOUT_MAX_ROWS: 4,
   SD_ADDR: {
     tlist: '/t_list',
     guidance: '/guidance_scale',
@@ -22,3 +31,8 @@ export const CONFIG = {
     seed: '/seed'
   }
 };
+
+// Paintings placed in the hall at once = perWall × 4 walls (capped for paging).
+export function layoutPageSize(layout) {
+  return Math.min(96, Math.max(4, layout.perWall * 4));
+}

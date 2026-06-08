@@ -50,6 +50,24 @@
           </div>
         </section>
 
+        <section class="panel-group" id="layout-group">
+          <h3>Layout</h3>
+          <div class="field"><label>Paintings per wall <output id="o-per-wall">12</output></label>
+            <input type="range" id="s-per-wall" min="1" max="24" step="1" value="12" /></div>
+          <div class="field"><label>Rows per wall <output id="o-rows">2</output></label>
+            <input type="range" id="s-rows" min="1" max="4" step="1" value="2" /></div>
+          <div class="field"><label>Horizontal spacing (m) <output id="o-col-pitch">2.2</output></label>
+            <input type="range" id="s-col-pitch" min="0.3" max="4" step="0.1" value="2.2" /></div>
+          <div class="field"><label>Vertical spacing (m) <output id="o-row-step">1.5</output></label>
+            <input type="range" id="s-row-step" min="0.5" max="2.5" step="0.05" value="1.5" /></div>
+          <div class="hint" id="layout-cap">Up to 48 paintings in room (12 × 4 walls)</div>
+          <div class="field row">
+            <button id="apply-layout">Apply layout</button>
+            <button id="tight-layout" class="ghost">Tight pack</button>
+            <button id="reset-layout" class="ghost">Reset</button>
+          </div>
+        </section>
+
         <section class="panel-group" id="sd-group">
           <h3>Stream Diffusion <span id="sd-status" class="dot" title="bridge status"></span></h3>
           <div class="field"><label>Steps / t_list <output id="o-tlist">4</output></label>

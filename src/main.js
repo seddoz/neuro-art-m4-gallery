@@ -5,7 +5,7 @@ import { Gallery } from './gallery.js';
 import { SDController } from './sd.js';
 import { UI } from './ui.js';
 import { fetchAllPaintings, fetchPainting, buildFacets, applyFilters } from './api.js';
-import { CONFIG } from './config.js';
+import { CONFIG, layoutPageSize } from './config.js';
 
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -39,7 +39,8 @@ const stateApp = {
   page: 0,
   selected: null,
   animating: false,
-  cameraTween: null
+  cameraTween: null,
+  layout: { ...CONFIG.LAYOUT_DEFAULT }
 };
 
 // --- selection via raycast (click, not drag) ---
@@ -163,12 +164,13 @@ function rebuild(list) {
 // Render the current page of the filtered set into the hall.
 function renderPage(reframe) {
   const total = stateApp.filtered.length;
-  const pages = Math.max(1, Math.ceil(total / CONFIG.PAGE));
+  const pageSize = layoutPageSize(stateApp.layout);
+  const pages = Math.max(1, Math.ceil(total / pageSize));
   stateApp.page = Math.min(Math.max(0, stateApp.page), pages - 1);
-  const start = stateApp.page * CONFIG.PAGE;
-  const slice = stateApp.filtered.slice(start, start + CONFIG.PAGE);
+  const start = stateApp.page * pageSize;
+  const slice = stateApp.filtered.slice(start, start + pageSize);
   stateApp.visible = slice;
-  gallery.build(slice);
+  gallery.build(slice, stateApp.layout);
   ui.setResultCount({
     from: total ? start + 1 : 0,
     to: start + slice.length,
@@ -221,6 +223,19 @@ const ui = new UI({
     stateApp.page += 1;
     renderPage(true);
   },
+  onApplyLayout: (layout) => {
+    stateApp.layout = {
+      perWall: Math.min(CONFIG.LAYOUT_MAX_PER_WALL, Math.max(1, layout.perWall)),
+      rows: Math.min(CONFIG.LAYOUT_MAX_ROWS, Math.max(1, layout.rows)),
+      colPitch: layout.colPitch,
+      rowStep: layout.rowStep
+    };
+    // Re-clamp page index when room capacity changes.
+    const pageSize = layoutPageSize(stateApp.layout);
+    const pages = Math.max(1, Math.ceil(stateApp.filtered.length / pageSize));
+    stateApp.page = Math.min(stateApp.page, pages - 1);
+    renderPage(true);
+  },
   onSD: (kind, v) => {
     if (kind === 'tlist') sd.setTList(v);
     else if (kind === 'guidance') sd.setGuidance(v);
@@ -267,5 +282,6 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
+ui._syncLayoutLabels();
 loadCatalog();
 animate();

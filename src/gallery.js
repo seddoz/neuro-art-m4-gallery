@@ -37,18 +37,20 @@ export class Gallery {
     this.envRoot.clear();
   }
 
-  // Lay up to CONFIG.PAGE paintings around a rectangular hall in a grid of
-  // ROWS_PER_WALL rows. Returns the placed paintings. Filters run over the
-  // full set upstream; this only caps what is rendered at once.
-  build(paintingData) {
+  // Lay paintings around a rectangular hall using live layout sliders (per wall,
+  // rows, horizontal/vertical pitch). Filters run over the full set upstream.
+  build(paintingData, layout) {
     this.clear();
-    const place = paintingData.slice(0, CONFIG.PAGE);
-    const rows = CONFIG.ROWS_PER_WALL;
-    const perWall = Math.max(1, Math.ceil(place.length / 4));
+    const rows = Math.max(1, layout.rows);
+    const perWall = Math.max(1, layout.perWall);
+    const pitch = Math.max(0.15, layout.colPitch);
+    const rowStep = Math.max(0.3, layout.rowStep);
+    const cap = perWall * 4;
+    const place = paintingData.slice(0, cap);
     const cols = Math.max(1, Math.ceil(perWall / rows));
-    const pitch = CONFIG.COL_PITCH_M;
     const wallLen = cols * pitch + CONFIG.ROOM_PADDING_M * 2;
     this.dims = { wallLen, height: CONFIG.WALL_HEIGHT_M };
+    this.layout = { ...layout, pitch, rowStep, perWall, rows };
 
     this._buildEnvironment(wallLen);
 
@@ -72,7 +74,7 @@ export class Gallery {
         const offset = -span / 2 + col * pitch;
         const along = wall.dir.clone().multiplyScalar(offset);
         p.group.position.copy(wall.pos).add(along);
-        p.group.position.y = CONFIG.ROW_BASE_Y + row * CONFIG.ROW_STEP_Y;
+        p.group.position.y = CONFIG.ROW_BASE_Y + row * rowStep;
         p.group.rotation.y = wall.rot;
         this.artRoot.add(p.group);
         this.paintings.push(p);
