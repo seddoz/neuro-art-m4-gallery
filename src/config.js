@@ -5,7 +5,7 @@
 export const CONFIG = {
   CM_TO_UNIT: 0.01,
   WALL_HEIGHT_M: 4.5,
-  ROOM_PADDING_M: 3.0,
+  ROOM_PADDING_M: 2.0,
   // How many paintings are placed in the 3D hall at once (a page). Filters
   // still run over the full working set; this caps geometry + texture memory.
   PAGE: 48,
@@ -16,14 +16,18 @@ export const CONFIG = {
   TEX_CONCURRENCY: 6, // max simultaneous texture downloads
   ACCEPTANCE_IDS: [282910, 282953, 282966],
   // Default gallery layout (overridden live by Layout panel sliders).
+  // colPitch/rowStep are now the GAP (in metres) added between painting edges;
+  // the actual centre pitch is (largest painting size + gap), so works of
+  // different formats never overlap and keep a consistent centre distance.
   LAYOUT_DEFAULT: {
     perWall: 12,
     rows: 2,
-    colPitch: 2.2,
-    rowStep: 1.5
+    colPitch: 0.4,
+    rowStep: 0.4
   },
-  LAYOUT_MAX_PER_WALL: 24,
-  LAYOUT_MAX_ROWS: 4,
+  LAYOUT_MAX_PER_WALL: 100,
+  LAYOUT_MAX_ROWS: 6,
+  LAYOUT_MIN_GAP: 0.1,
   SD_ADDR: {
     tlist: '/t_list',
     guidance: '/guidance_scale',
@@ -33,6 +37,7 @@ export const CONFIG = {
 };
 
 // Paintings placed in the hall at once = perWall × 4 walls (capped for paging).
+// Cap raised to 400 so the 100-per-wall option works; default stays light.
 export function layoutPageSize(layout) {
-  return Math.min(96, Math.max(4, layout.perWall * 4));
+  return Math.min(400, Math.max(4, layout.perWall * 4));
 }

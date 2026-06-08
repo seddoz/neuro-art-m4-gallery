@@ -75,7 +75,8 @@ export class UI {
       this.h.onApplyLayout(this.readLayout());
     });
     document.getElementById('tight-layout')?.addEventListener('click', () => {
-      this.setLayout({ perWall: 16, rows: 2, colPitch: 0.45, rowStep: 0.85 });
+      // Max-density preset per client request: 100 per wall, 6 rows, min gaps.
+      this.setLayout({ perWall: 100, rows: 6, colPitch: 0.1, rowStep: 0.1 });
       this.h.onApplyLayout(this.readLayout());
     });
     document.getElementById('reset-layout')?.addEventListener('click', () => {

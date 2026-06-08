@@ -38,21 +38,47 @@ export class Gallery {
   }
 
   // Lay paintings around a rectangular hall using live layout sliders (per wall,
-  // rows, horizontal/vertical pitch). Filters run over the full set upstream.
+  // rows, horizontal/vertical gap). Filters run over the full set upstream.
+  //
+  // Overlap-free placement: colPitch/rowStep are read as the GAP between
+  // painting edges. The grid uses a uniform cell sized to the LARGEST painting
+  // in the set, so works of different formats never overlap and keep a
+  // consistent centre-to-centre distance. The room (length + height) auto-fits
+  // the resulting grid.
   build(paintingData, layout) {
     this.clear();
-    const rows = Math.max(1, layout.rows);
-    const perWall = Math.max(1, layout.perWall);
-    const pitch = Math.max(0.15, layout.colPitch);
-    const rowStep = Math.max(0.3, layout.rowStep);
+    const minGap = CONFIG.LAYOUT_MIN_GAP;
+    const rows = Math.max(1, Math.min(CONFIG.LAYOUT_MAX_ROWS, layout.rows));
+    const perWall = Math.max(1, Math.min(CONFIG.LAYOUT_MAX_PER_WALL, layout.perWall));
+    const hGap = Math.max(minGap, layout.colPitch);
+    const vGap = Math.max(minGap, layout.rowStep);
     const cap = perWall * 4;
     const place = paintingData.slice(0, cap);
-    const cols = Math.max(1, Math.ceil(perWall / rows));
-    const wallLen = cols * pitch + CONFIG.ROOM_PADDING_M * 2;
-    this.dims = { wallLen, height: CONFIG.WALL_HEIGHT_M };
-    this.layout = { ...layout, pitch, rowStep, perWall, rows };
 
-    this._buildEnvironment(wallLen);
+    // Largest painting in this set defines the uniform cell (prevents overlap).
+    let maxW = 0.3;
+    let maxH = 0.3;
+    for (const d of place) {
+      const w = Math.max(0.05, (d.widthCm || 40) * CONFIG.CM_TO_UNIT);
+      const h = Math.max(0.05, (d.heightCm || 40) * CONFIG.CM_TO_UNIT);
+      if (w > maxW) maxW = w;
+      if (h > maxH) maxH = h;
+    }
+    const colPitch = maxW + hGap;
+    const rowPitch = maxH + vGap;
+
+    const cols = Math.max(1, Math.ceil(perWall / rows));
+    const wallLen = cols * colPitch + CONFIG.ROOM_PADDING_M * 2;
+
+    // Auto-fit wall height to the row stack; bottom row sits ~0.8 m off floor.
+    const baseY = 0.8 + maxH / 2;
+    const topY = baseY + (rows - 1) * rowPitch;
+    const wallHeight = Math.max(CONFIG.WALL_HEIGHT_M, topY + maxH / 2 + 0.8);
+
+    this.dims = { wallLen, height: wallHeight };
+    this.layout = { ...layout, colPitch, rowPitch, perWall, rows, maxW, maxH };
+
+    this._buildEnvironment(wallLen, wallHeight);
 
     // Distribute around 4 walls. Each wall is a line; paintings face inward.
     const walls = [
@@ -62,7 +88,7 @@ export class Gallery {
       { dir: new THREE.Vector3(0, 0, -1), pos: new THREE.Vector3(wallLen / 2, 0, 0), rot: -Math.PI / 2 }
     ];
 
-    const span = (cols - 1) * pitch;
+    const span = (cols - 1) * colPitch;
     let idx = 0;
     for (let w = 0; w < walls.length && idx < place.length; w++) {
       const wall = walls[w];
@@ -71,10 +97,10 @@ export class Gallery {
         const col = Math.floor(i / rows);
         const row = i % rows;
         const p = new Painting(place[idx++]);
-        const offset = -span / 2 + col * pitch;
+        const offset = -span / 2 + col * colPitch;
         const along = wall.dir.clone().multiplyScalar(offset);
         p.group.position.copy(wall.pos).add(along);
-        p.group.position.y = CONFIG.ROW_BASE_Y + row * rowStep;
+        p.group.position.y = baseY + row * rowPitch;
         p.group.rotation.y = wall.rot;
         this.artRoot.add(p.group);
         this.paintings.push(p);
@@ -84,9 +110,7 @@ export class Gallery {
     return this.paintings;
   }
 
-  _buildEnvironment(wallLen) {
-    const h = CONFIG.WALL_HEIGHT_M;
-
+  _buildEnvironment(wallLen, h = CONFIG.WALL_HEIGHT_M) {
     // Floor
     this.floorMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.9 });
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(wallLen, wallLen), this.floorMat);
