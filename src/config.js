@@ -29,15 +29,12 @@ export const CONFIG = {
   LAYOUT_MAX_ROWS: 20,
   LAYOUT_MAX_TOTAL: 800,
   LAYOUT_MIN_GAP: 0.02,
-  // Planar mirror room — tuned for performance (6 reflectors = 6 scene passes/frame).
+  // Planar mirror room (webgl_mirror-style Reflector planes).
   MIRROR: {
-    textureWidth: 256,
-    textureHeight: 256,
-    multisample: 0,
+    textureWidth: 512,
+    textureHeight: 512,
     clipBias: 0.003,
-    color: 0x777777,
-    includeCeiling: false,
-    updateStride: 2
+    color: 0x777777
   },
   SD_ADDR: {
     tlist: '/t_list',

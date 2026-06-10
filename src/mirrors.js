@@ -2,20 +2,8 @@ import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 import { CONFIG } from './config.js';
 
-function mirrorTextureSize() {
-  const m = CONFIG.MIRROR;
-  if (m.textureWidth) return { w: m.textureWidth, h: m.textureHeight || m.textureWidth };
-  // Auto: lighter targets on touch / low-DPR devices.
-  const coarse = matchMedia('(pointer: coarse)').matches;
-  const small = coarse || devicePixelRatio < 1.5;
-  const s = small ? 128 : 256;
-  return { w: s, h: s };
-}
-
-// Planar reflectors forming a mirror box. Each Reflector renders the scene to a
-// texture onBeforeRender — without guards that becomes 6× full-scene passes (and
-// worse: nested mirror-on-mirror recursion). We hide all mirrors during each pass
-// and stagger updates so only a subset refresh each frame.
+// Six planar reflectors (floor, ceiling, 4 walls) forming a mirror box at 90°.
+// Port of the three.js webgl_mirror pattern — Reflector auto-renders onBeforeRender.
 export class MirrorRoom {
   constructor(parent) {
     this.root = new THREE.Group();
@@ -24,41 +12,16 @@ export class MirrorRoom {
     parent.add(this.root);
     this.reflectors = [];
     this.enabled = false;
-    this._frame = 0;
   }
 
-  tick() {
-    if (this.enabled) this._frame++;
-  }
-
-  _shouldUpdate(index) {
-    const stride = CONFIG.MIRROR.updateStride ?? 2;
-    return (this._frame + index) % stride === 0;
-  }
-
-  _mkReflector(geometry, index) {
+  _mkReflector(geometry) {
     const m = CONFIG.MIRROR;
-    const { w, h } = mirrorTextureSize();
     const r = new Reflector(geometry, {
       clipBias: m.clipBias,
       color: m.color,
-      textureWidth: w,
-      textureHeight: h,
-      multisample: m.multisample ?? 0
+      textureWidth: m.textureWidth,
+      textureHeight: m.textureHeight
     });
-
-    const orig = r.onBeforeRender.bind(r);
-    r.onBeforeRender = (renderer, scene, camera) => {
-      if (!this.enabled || !this._shouldUpdate(index)) return;
-
-      // Stop mirror-in-mirror recursion: other reflectors must not run during this pass.
-      for (const ref of this.reflectors) ref.visible = false;
-
-      orig(renderer, scene, camera);
-
-      for (const ref of this.reflectors) ref.visible = true;
-    };
-
     this.root.add(r);
     this.reflectors.push(r);
     return r;
@@ -70,28 +33,25 @@ export class MirrorRoom {
     const h = height;
     const half = L / 2;
 
-    const floor = this._mkReflector(new THREE.PlaneGeometry(L, L), 0);
+    const floor = this._mkReflector(new THREE.PlaneGeometry(L, L));
     floor.rotation.x = -Math.PI / 2;
 
-    let idx = 1;
-    if (CONFIG.MIRROR.includeCeiling) {
-      const ceiling = this._mkReflector(new THREE.PlaneGeometry(L, L), idx++);
-      ceiling.rotation.x = Math.PI / 2;
-      ceiling.position.y = h;
-    }
+    const ceiling = this._mkReflector(new THREE.PlaneGeometry(L, L));
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.y = h;
 
-    const front = this._mkReflector(new THREE.PlaneGeometry(L, h), idx++);
+    const front = this._mkReflector(new THREE.PlaneGeometry(L, h));
     front.position.set(0, h / 2, -half);
 
-    const back = this._mkReflector(new THREE.PlaneGeometry(L, h), idx++);
+    const back = this._mkReflector(new THREE.PlaneGeometry(L, h));
     back.position.set(0, h / 2, half);
     back.rotation.y = Math.PI;
 
-    const left = this._mkReflector(new THREE.PlaneGeometry(L, h), idx++);
+    const left = this._mkReflector(new THREE.PlaneGeometry(L, h));
     left.position.set(-half, h / 2, 0);
     left.rotation.y = Math.PI / 2;
 
-    const right = this._mkReflector(new THREE.PlaneGeometry(L, h), idx++);
+    const right = this._mkReflector(new THREE.PlaneGeometry(L, h));
     right.position.set(half, h / 2, 0);
     right.rotation.y = -Math.PI / 2;
   }
@@ -99,7 +59,6 @@ export class MirrorRoom {
   setEnabled(on) {
     this.enabled = !!on;
     this.root.visible = this.enabled;
-    if (this.enabled) this._frame = 0;
   }
 
   dispose() {
