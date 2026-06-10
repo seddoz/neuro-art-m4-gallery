@@ -62,9 +62,7 @@ export const CONFIG = {
     maxPaintings: 100,
     maxArtists: 40,
     tileBaseM: 0.45,
-    artistTileM: 0.42,
-    artistHoverM: 0.55,
-    artistLiftM: 0.4,
+    artistTileM: 0.38,
     autoRotateSpeed: 0.22,
     resumeRotateMs: 3000
   },
