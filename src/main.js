@@ -28,6 +28,69 @@ controls.dampingFactor = 0.08;
 controls.target.set(0, 1.6, 0);
 controls.maxPolarAngle = Math.PI * 0.85;
 
+// WASD walk (moves camera + orbit target together).
+const MOVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD']);
+const keysDown = new Set();
+const MOVE_SPEED = 4; // m/s
+const _moveDir = new THREE.Vector3();
+const _lookFlat = new THREE.Vector3();
+const _strafe = new THREE.Vector3();
+
+function isTypingTarget(el) {
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+}
+
+addEventListener('keydown', (e) => {
+  if (!MOVE_KEYS.has(e.code) || isTypingTarget(document.activeElement)) return;
+  keysDown.add(e.code);
+  e.preventDefault();
+});
+addEventListener('keyup', (e) => {
+  keysDown.delete(e.code);
+});
+addEventListener('blur', () => keysDown.clear(), true);
+
+function applyKeyboardMove(dt) {
+  if (keysDown.size === 0 || stateApp.cameraTween) return;
+
+  camera.getWorldDirection(_lookFlat);
+  _lookFlat.y = 0;
+  if (_lookFlat.lengthSq() < 1e-6) return;
+  _lookFlat.normalize();
+  _strafe.crossVectors(_lookFlat, THREE.Object3D.DEFAULT_UP).normalize();
+
+  _moveDir.set(0, 0, 0);
+  if (keysDown.has('KeyW')) _moveDir.add(_lookFlat);
+  if (keysDown.has('KeyS')) _moveDir.sub(_lookFlat);
+  if (keysDown.has('KeyD')) _moveDir.add(_strafe);
+  if (keysDown.has('KeyA')) _moveDir.sub(_strafe);
+  if (_moveDir.lengthSq() === 0) return;
+
+  _moveDir.normalize().multiplyScalar(MOVE_SPEED * dt);
+  camera.position.add(_moveDir);
+  controls.target.add(_moveDir);
+  clampCameraToRoom();
+}
+
+function clampCameraToRoom() {
+  const dims = gallery.dims;
+  if (!dims) return;
+  const half = dims.wallLen / 2 - 0.6;
+  const ox = camera.position.x;
+  const oz = camera.position.z;
+  const cx = THREE.MathUtils.clamp(ox, -half, half);
+  const cz = THREE.MathUtils.clamp(oz, -half, half);
+  const dx = cx - ox;
+  const dz = cz - oz;
+  if (dx === 0 && dz === 0) return;
+  camera.position.x = cx;
+  camera.position.z = cz;
+  controls.target.x += dx;
+  controls.target.z += dz;
+}
+
 const gallery = new Gallery(scene);
 const sd = new SDController();
 
@@ -294,6 +357,8 @@ function animate() {
     camera.position.lerpVectors(tw.fromPos, tw.toPos, e);
     controls.target.lerpVectors(tw.fromTarget, tw.toTarget, e);
     if (tw.t >= 1) stateApp.cameraTween = null;
+  } else {
+    applyKeyboardMove(dt);
   }
 
   gallery.update(dt);
