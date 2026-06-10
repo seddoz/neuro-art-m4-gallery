@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { Painting, enqueueTexture, resetTextureQueue } from './painting.js';
+import { packWallColumns, paintingSizeM } from './wallPack.js';
 
 // Builds the 3D exhibition space and lays paintings along its walls using
 // real cm dimensions. Holds the "environment" that the Environment mode
@@ -41,14 +42,9 @@ export class Gallery {
     this.envRoot.clear();
   }
 
-  // Lay paintings around a rectangular hall using live layout sliders (per wall,
-  // rows, horizontal/vertical gap). Filters run over the full set upstream.
-  //
-  // Overlap-free placement: colPitch/rowStep are read as the GAP between
-  // painting edges. The grid uses a uniform cell sized to the LARGEST painting
-  // in the set, so works of different formats never overlap and keep a
-  // consistent centre-to-centre distance. The room (length + height) auto-fits
-  // the resulting grid.
+  // Lay paintings around a rectangular hall. Rows per wall = max stack height per
+  // column; paintings per wall sets count. Each column uses real painting sizes
+  // with minimum edge gaps (no uniform oversized cells).
   build(paintingData, layout) {
     this.clear();
     const minGap = CONFIG.LAYOUT_MIN_GAP;
@@ -56,55 +52,50 @@ export class Gallery {
     const perWall = Math.max(1, Math.min(CONFIG.LAYOUT_MAX_PER_WALL, layout.perWall));
     const hGap = Math.max(minGap, layout.colPitch);
     const vGap = Math.max(minGap, layout.rowStep);
-    const cap = perWall * 4;
+    const cap = Math.min(CONFIG.LAYOUT_MAX_TOTAL, perWall * 4);
     const place = paintingData.slice(0, cap);
 
-    // Largest painting in this set defines the uniform cell (prevents overlap).
-    let maxW = 0.3;
-    let maxH = 0.3;
-    for (const d of place) {
-      const w = Math.max(0.05, (d.widthCm || 40) * CONFIG.CM_TO_UNIT);
-      const h = Math.max(0.05, (d.heightCm || 40) * CONFIG.CM_TO_UNIT);
-      if (w > maxW) maxW = w;
-      if (h > maxH) maxH = h;
+    const wallChunks = [];
+    let idx = 0;
+    for (let w = 0; w < 4 && idx < place.length; w++) {
+      const onThis = Math.min(perWall, place.length - idx);
+      wallChunks.push(place.slice(idx, idx + onThis));
+      idx += onThis;
     }
-    const colPitch = maxW + hGap;
-    const rowPitch = maxH + vGap;
+    while (wallChunks.length < 4) wallChunks.push([]);
 
-    const cols = Math.max(1, Math.ceil(perWall / rows));
-    const wallLen = cols * colPitch + CONFIG.ROOM_PADDING_M * 2;
+    const packs = wallChunks.map((chunk) => {
+      const items = chunk.map((data) => ({ data, ...paintingSizeM(data) }));
+      return packWallColumns(items, rows, hGap, vGap);
+    });
 
-    // Auto-fit wall height to the row stack; bottom row sits ~0.8 m off floor.
-    const baseY = 0.8 + maxH / 2;
-    const topY = baseY + (rows - 1) * rowPitch;
-    const wallHeight = Math.max(CONFIG.WALL_HEIGHT_M, topY + maxH / 2 + 0.8);
+    let wallLen = 8;
+    let wallHeight = CONFIG.WALL_HEIGHT_M;
+    for (const pack of packs) {
+      wallLen = Math.max(wallLen, pack.width + CONFIG.ROOM_PADDING_M * 2);
+      wallHeight = Math.max(wallHeight, pack.topY + 0.8);
+    }
 
     this.dims = { wallLen, height: wallHeight };
-    this.layout = { ...layout, colPitch, rowPitch, perWall, rows, maxW, maxH };
+    this.layout = { ...layout, perWall, rows, hGap, vGap };
 
     this._buildEnvironment(wallLen, wallHeight);
 
-    // Distribute around 4 walls. Each wall is a line; paintings face inward.
+    const half = wallLen / 2;
     const walls = [
-      { dir: new THREE.Vector3(1, 0, 0), pos: new THREE.Vector3(0, 0, -wallLen / 2), rot: 0 },
-      { dir: new THREE.Vector3(-1, 0, 0), pos: new THREE.Vector3(0, 0, wallLen / 2), rot: Math.PI },
-      { dir: new THREE.Vector3(0, 0, 1), pos: new THREE.Vector3(-wallLen / 2, 0, 0), rot: Math.PI / 2 },
-      { dir: new THREE.Vector3(0, 0, -1), pos: new THREE.Vector3(wallLen / 2, 0, 0), rot: -Math.PI / 2 }
+      { dir: new THREE.Vector3(1, 0, 0), pos: new THREE.Vector3(0, 0, -half), rot: 0 },
+      { dir: new THREE.Vector3(-1, 0, 0), pos: new THREE.Vector3(0, 0, half), rot: Math.PI },
+      { dir: new THREE.Vector3(0, 0, 1), pos: new THREE.Vector3(-half, 0, 0), rot: Math.PI / 2 },
+      { dir: new THREE.Vector3(0, 0, -1), pos: new THREE.Vector3(half, 0, 0), rot: -Math.PI / 2 }
     ];
 
-    const span = (cols - 1) * colPitch;
-    let idx = 0;
-    for (let w = 0; w < walls.length && idx < place.length; w++) {
+    for (let w = 0; w < walls.length; w++) {
       const wall = walls[w];
-      const onThis = Math.min(perWall, place.length - idx);
-      for (let i = 0; i < onThis; i++) {
-        const col = Math.floor(i / rows);
-        const row = i % rows;
-        const p = new Painting(place[idx++]);
-        const offset = -span / 2 + col * colPitch;
-        const along = wall.dir.clone().multiplyScalar(offset);
+      for (const slot of packs[w].placed) {
+        const p = new Painting(slot.data);
+        const along = wall.dir.clone().multiplyScalar(slot.cx);
         p.group.position.copy(wall.pos).add(along);
-        p.group.position.y = baseY + row * rowPitch;
+        p.group.position.y = slot.cy;
         p.group.rotation.y = wall.rot;
         this.artRoot.add(p.group);
         this.paintings.push(p);

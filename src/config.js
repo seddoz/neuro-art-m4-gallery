@@ -25,9 +25,10 @@ export const CONFIG = {
     colPitch: 0.4,
     rowStep: 0.4
   },
-  LAYOUT_MAX_PER_WALL: 100,
-  LAYOUT_MAX_ROWS: 6,
-  LAYOUT_MIN_GAP: 0.1,
+  LAYOUT_MAX_PER_WALL: 200,
+  LAYOUT_MAX_ROWS: 20,
+  LAYOUT_MAX_TOTAL: 800,
+  LAYOUT_MIN_GAP: 0.02,
   SD_ADDR: {
     tlist: '/t_list',
     guidance: '/guidance_scale',
@@ -36,8 +37,7 @@ export const CONFIG = {
   }
 };
 
-// Paintings placed in the hall at once = perWall × 4 walls (capped for paging).
-// Cap raised to 400 so the 100-per-wall option works; default stays light.
+// Paintings placed in the hall at once = perWall × 4 walls.
 export function layoutPageSize(layout) {
-  return Math.min(400, Math.max(4, layout.perWall * 4));
+  return Math.min(CONFIG.LAYOUT_MAX_TOTAL, Math.max(4, layout.perWall * 4));
 }

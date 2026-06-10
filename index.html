@@ -53,15 +53,15 @@
         <section class="panel-group" id="layout-group">
           <h3>Layout</h3>
           <div class="field"><label>Paintings per wall <output id="o-per-wall">12</output></label>
-            <input type="range" id="s-per-wall" min="1" max="100" step="1" value="12" /></div>
+            <input type="range" id="s-per-wall" min="1" max="200" step="1" value="12" /></div>
           <div class="field"><label>Rows per wall <output id="o-rows">2</output></label>
-            <input type="range" id="s-rows" min="1" max="6" step="1" value="2" /></div>
+            <input type="range" id="s-rows" min="1" max="20" step="1" value="2" /></div>
           <div class="field"><label>Horizontal spacing (m) <output id="o-col-pitch">0.4</output></label>
-            <input type="range" id="s-col-pitch" min="0.1" max="3" step="0.05" value="0.4" /></div>
+            <input type="range" id="s-col-pitch" min="0.02" max="3" step="0.01" value="0.4" /></div>
           <div class="field"><label>Vertical spacing (m) <output id="o-row-step">0.4</output></label>
-            <input type="range" id="s-row-step" min="0.1" max="3" step="0.05" value="0.4" /></div>
+            <input type="range" id="s-row-step" min="0.02" max="3" step="0.01" value="0.4" /></div>
           <div class="hint" id="layout-cap">Up to 48 paintings in room (12 × 4 walls)</div>
-          <div class="hint muted">Spacing is the gap between paintings; the room auto-fits and works never overlap.</div>
+          <div class="hint muted">Rows = stack height per column. Spacing is the minimum edge gap; same-size works group together. Room auto-fits.</div>
           <div class="field row">
             <button id="apply-layout">Apply layout</button>
             <button id="tight-layout" class="ghost">Tight pack</button>
