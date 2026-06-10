@@ -23,12 +23,10 @@ scene.fog = new THREE.FogExp2(0x14141c, 0.004);
 // stay crisp and do not z-fight with their frames.
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.25, 160);
 camera.layers.enable(MIRROR_LAYER);
-camera.position.set(0, 1.7, 8);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
-controls.target.set(0, 1.6, 0);
 controls.maxPolarAngle = Math.PI * 0.85;
 
 controls.addEventListener('start', () => {
@@ -258,17 +256,21 @@ function sphereView() {
   };
 }
 
-// Default view: camera near the front wall but orbit target at room centre so
-// the user can freely look at all four walls.
+// Default room view: centered on the front wall (z = -L/2), camera on axis, target at wall centre.
 function galleryView() {
   const L = gallery.dims ? gallery.dims.wallLen : 16;
   const h = gallery.dims?.height ?? CONFIG.WALL_HEIGHT_M;
-  const z = -L / 2; // front wall
-  const dist = Math.min(8, L * 0.42);
-  return {
-    pos: new THREE.Vector3(0, 2.0, z + dist),
-    target: new THREE.Vector3(0, h * 0.4, 0)
-  };
+  const half = L / 2;
+  const standoff = Math.min(6, Math.max(2.5, L * 0.22));
+  const target = new THREE.Vector3(0, h / 2, -half);
+  const pos = new THREE.Vector3(0, h / 2, -half + standoff);
+  return { pos, target };
+}
+
+function applyGalleryView() {
+  const v = galleryView();
+  camera.position.copy(v.pos);
+  controls.target.copy(v.target);
 }
 
 // --- enter / exit camera moves ---
@@ -286,12 +288,15 @@ function enterPainting() {
   const camTarget = worldPos.clone().add(normal.multiplyScalar(dist)).add(shift);
   controls.minDistance = 0.1;
   tweenCamera(camTarget, worldPos.clone().add(shift));
-  p.setAnimated(true);
-  stateApp.animating = true;
-  ui.setAnimationLabel(true);
 }
 
 function exitToGallery() {
+  const p = stateApp.selected;
+  if (p) {
+    p.setAnimated(false);
+    stateApp.animating = false;
+    ui.setAnimationLabel(false);
+  }
   if (stateApp.view === 'sphere') {
     updateCameraForSphere();
     const v = sphereView();
@@ -361,9 +366,7 @@ function applyView(view, reframe = false) {
     renderPage(reframe);
     updateCameraForRoom(gallery.dims);
     if (reframe) {
-      const v = galleryView();
-      camera.position.copy(v.pos);
-      controls.target.copy(v.target);
+      applyGalleryView();
       stateApp.cameraTween = null;
     }
   }
@@ -420,6 +423,7 @@ function renderPage(reframe) {
   gallery.build(slice, stateApp.layout);
   updateCameraForRoom(gallery.dims);
   gallery.setMirrorEnabled(stateApp.mirrorOn);
+  gallery.setMirrorQuality(stateApp.mirrorQuality);
   ui.setResultCount({
     from: total ? start + 1 : 0,
     to: start + slice.length,
@@ -431,9 +435,7 @@ function renderPage(reframe) {
   select(null);
   applyLook(sd.look());
   if (reframe) {
-    const v = galleryView();
-    camera.position.copy(v.pos);
-    controls.target.copy(v.target);
+    applyGalleryView();
     stateApp.cameraTween = null;
   }
 }
@@ -514,6 +516,10 @@ const ui = new UI({
   onEnter: enterPainting,
   onExit: exitToGallery
 });
+
+applyGalleryView();
+if (ui.mirrorQuality) ui.mirrorQuality.value = stateApp.mirrorQuality;
+gallery.setMirrorQuality(stateApp.mirrorQuality);
 
 // Wire SD updates only after `ui` exists; onChange fires immediately and the
 // async health check also emits, both of which call applyLook -> ui.

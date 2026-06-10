@@ -37,7 +37,7 @@ export const CONFIG = {
     multisample: 0,
     clipBias: 0.003,
     color: 0x808080,
-    defaultQuality: 'balanced',
+    defaultQuality: 'live',
     quality: {
       live: { perFrame: 6, texMin: 512, texMax: 1024, ceiling: true },
       balanced: { perFrame: 2, texMin: 512, texMax: 1024, ceiling: true },
