@@ -426,6 +426,11 @@ function applyView(view, reframe = false) {
   }
 }
 
+async function switchView(view) {
+  if (view === 'sphere') stateApp.authors = await fetchAuthors();
+  applyView(view, true);
+}
+
 // --- catalog + filters ---
 async function loadCatalog() {
   ui.setLoadingText('Fetching stock...');
@@ -496,7 +501,7 @@ function renderPage(reframe) {
 
 // --- UI handlers ---
 const ui = new UI({
-  onView: (view) => applyView(view, true),
+  onView: (view) => switchView(view),
   onMode: (mode) => {
     stateApp.mode = mode;
     applyLook(sd.look());

@@ -15,7 +15,6 @@ function tileSize(wCm, hCm) {
   return { w: base * aspect, h: base };
 }
 
-// Even distribution on a sphere (Fibonacci lattice).
 function spherePoints(n, radius) {
   if (n <= 0) return [];
   if (n === 1) return [new THREE.Vector3(0, 0, radius)];
@@ -42,8 +41,28 @@ function shuffle(arr) {
   return arr;
 }
 
-// Centre collection sphere: filtered paintings + artist tiles on a rotating
-// cloud. Tiles billboard toward the camera; no black frames on sphere works.
+function disposeObject3D(obj) {
+  obj.traverse((c) => {
+    if (c.geometry) c.geometry.dispose();
+    if (c.material) {
+      if (Array.isArray(c.material)) c.material.forEach((m) => m.dispose());
+      else {
+        if (c.material.map) c.material.map.dispose();
+        c.material.dispose();
+      }
+    }
+  });
+}
+
+// Artist tiles float outward + slightly above their paired painting on the sphere.
+function artistAirPosition(paintPos, radius) {
+  const dir = paintPos.clone().normalize();
+  const hover = radius + CONFIG.SPHERE.artistHoverM;
+  const pos = dir.multiplyScalar(hover);
+  pos.y += CONFIG.SPHERE.artistLiftM;
+  return pos;
+}
+
 export class CollectionSphere {
   constructor(scene) {
     this.scene = scene;
@@ -66,11 +85,7 @@ export class CollectionSphere {
   clear() {
     for (const p of this.paintings) p.dispose();
     this.paintings = [];
-    for (const m of this.artistMeshes) {
-      m.geometry?.dispose();
-      if (Array.isArray(m.material)) m.material.forEach((mat) => mat.dispose());
-      else m.material?.dispose();
-    }
+    for (const g of this.artistMeshes) disposeObject3D(g);
     this.artistMeshes = [];
     this.spin.clear();
   }
@@ -80,7 +95,6 @@ export class CollectionSphere {
 
     const L = roomDims?.wallLen ?? 16;
     this.radius = Math.min(L, CONFIG.SPHERE.maxRoomLen) * CONFIG.SPHERE.radiusFactor;
-    // Lift sphere so its bottom sits above the floor (y = 0).
     this.root.position.y = this.radius + CONFIG.SPHERE.floorClearance;
 
     const maxP = CONFIG.SPHERE.maxPaintings;
@@ -91,15 +105,18 @@ export class CollectionSphere {
     const authorPool = authors.filter((a) => artistNames.has(a.name));
     const extras = authors.filter((a) => !artistNames.has(a.name));
     shuffle(extras);
-    const artistList = [...authorPool, ...extras].slice(0, maxA);
+    let artistList = [...authorPool, ...extras].slice(0, maxA);
+    if (!artistList.length && artistNames.size) {
+      artistList = [...artistNames].slice(0, maxA).map((name) => ({ name, photo: '' }));
+    }
 
-    const total = paintings.length + artistList.length;
-    const points = spherePoints(total, this.radius);
-    shuffle(points);
+    const paintPoints = spherePoints(paintings.length, this.radius);
+    shuffle(paintPoints);
 
-    let pi = 0;
-    for (const data of paintings) {
-      const pos = points[pi++];
+    const slots = [];
+    for (let i = 0; i < paintings.length; i++) {
+      const data = paintings[i];
+      const pos = paintPoints[i];
       const p = new Painting(data, { framed: false });
       const { w, h } = tileSize(data.widthCm, data.heightCm);
       p.mesh.scale.set(w / p.sizeM.w, h / p.sizeM.h, 1);
@@ -108,42 +125,96 @@ export class CollectionSphere {
       this.spin.add(p.group);
       this.paintings.push(p);
       enqueueTexture(p);
+      slots.push({ pos, data });
     }
 
+    const usedSlots = new Set();
     for (const author of artistList) {
-      const pos = points[pi++];
-      const mesh = this._mkArtistTile(author, pos);
-      this.spin.add(mesh);
-      this.artistMeshes.push(mesh);
+      let slotIdx = slots.findIndex((s, i) => s.data.artist === author.name && !usedSlots.has(i));
+      if (slotIdx < 0) {
+        slotIdx = slots.findIndex((_, i) => !usedSlots.has(i));
+      }
+      if (slotIdx < 0) slotIdx = Math.floor(Math.random() * slots.length);
+      usedSlots.add(slotIdx);
+
+      const airPos = artistAirPosition(slots[slotIdx].pos.clone(), this.radius);
+      const group = this._mkArtistTile(author, airPos);
+      this.spin.add(group);
+      this.artistMeshes.push(group);
     }
   }
 
   _mkArtistTile(author, pos) {
     const s = CONFIG.SPHERE.artistTileM;
-    const geo = new THREE.PlaneGeometry(s, s);
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0x2a2838,
-      side: THREE.DoubleSide
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(pos);
-    mesh.userData = { type: 'artist', name: author.name, photo: author.photo };
+    const group = new THREE.Group();
+    group.position.copy(pos);
+    group.userData = { type: 'artist', name: author.name, photo: author.photo };
+    group.renderOrder = 10;
+
+    const ring = new THREE.Mesh(
+      new THREE.PlaneGeometry(s * 1.15, s * 1.15),
+      new THREE.MeshBasicMaterial({ color: 0x7c83ff, side: THREE.DoubleSide })
+    );
+    ring.position.z = -0.003;
+    ring.renderOrder = 10;
+    group.add(ring);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#2e2c42';
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.fillStyle = '#e8e8f0';
+    ctx.font = '600 20px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    let line = '';
+    let y = 118;
+    for (const w of author.name.split(/\s+/)) {
+      const test = line ? `${line} ${w}` : w;
+      if (ctx.measureText(test).width > 220 && line) {
+        ctx.fillText(line, 128, y);
+        line = w;
+        y += 24;
+      } else {
+        line = test;
+      }
+    }
+    if (line) ctx.fillText(line, 128, y);
+    ctx.font = '500 11px Segoe UI, sans-serif';
+    ctx.fillStyle = '#9a9ab0';
+    ctx.fillText('ARTIST', 128, y + 28);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const face = new THREE.Mesh(
+      new THREE.PlaneGeometry(s, s),
+      new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide, transparent: true })
+    );
+    face.renderOrder = 11;
+    face.userData = group.userData;
+    group.add(face);
 
     if (author.photo) {
       loader.load(
         proxiedImage(author.photo),
-        (tex) => {
-          tex.colorSpace = THREE.SRGBColorSpace;
-          mat.map = tex;
-          mat.color.set(0xffffff);
-          mat.needsUpdate = true;
+        (photoTex) => {
+          photoTex.colorSpace = THREE.SRGBColorSpace;
+          ctx.drawImage(photoTex.image, 0, 0, 256, 256);
+          ctx.fillStyle = 'rgba(20,20,30,0.55)';
+          ctx.fillRect(0, 200, 256, 56);
+          ctx.fillStyle = '#fff';
+          ctx.font = '600 18px Segoe UI, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(author.name, 128, 232);
+          tex.needsUpdate = true;
         },
         undefined,
-        () => { /* keep placeholder */ }
+        () => { /* keep name placeholder */ }
       );
     }
 
-    return mesh;
+    return group;
   }
 
   setVisible(on) {
@@ -172,7 +243,13 @@ export class CollectionSphere {
   }
 
   getPickables() {
-    return [...this.getPaintingMeshes(), ...this.artistMeshes];
+    const meshes = [...this.getPaintingMeshes()];
+    for (const g of this.artistMeshes) {
+      g.traverse((c) => {
+        if (c.isMesh) meshes.push(c);
+      });
+    }
+    return meshes;
   }
 
   pick(clientX, clientY, camera, raycaster, pointer) {
@@ -181,11 +258,12 @@ export class CollectionSphere {
     raycaster.setFromCamera(pointer, camera);
     const hits = raycaster.intersectObjects(this.getPickables(), false);
     if (!hits.length) return null;
-    const obj = hits[0].object;
+    let obj = hits[0].object;
     if (obj.userData.painting) {
       return { type: 'painting', painting: obj.userData.painting, data: obj.userData.painting.data };
     }
-    if (obj.userData.type === 'artist') {
+    while (obj && obj.userData?.type !== 'artist') obj = obj.parent;
+    if (obj?.userData?.type === 'artist') {
       return { type: 'artist', data: { title: obj.userData.name, artist: obj.userData.name } };
     }
     return null;
@@ -198,14 +276,8 @@ export class CollectionSphere {
     }
   }
 
-  // SD sliders: spin rate + artist placeholder tint only (backdrop stays black, walls are white matte).
   applyEnvironmentLook(look, active) {
     this._rotateMul = active ? 0.4 + look.blend * 1.6 : 1;
-    for (const m of this.artistMeshes) {
-      const mat = m.material;
-      if (!mat || mat.map) continue;
-      mat.color.setHSL(look.hueShift, active ? 0.25 : 0, active ? 0.32 + look.intensity * 0.12 : 0.18);
-    }
   }
 
   update(dt, camera) {
@@ -217,8 +289,8 @@ export class CollectionSphere {
       p.group.lookAt(camPos);
       p.update(dt);
     }
-    for (const m of this.artistMeshes) {
-      m.lookAt(camPos);
+    for (const g of this.artistMeshes) {
+      g.lookAt(camPos);
     }
   }
 }
