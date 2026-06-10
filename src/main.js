@@ -43,10 +43,18 @@ const stateApp = {
   layout: { ...CONFIG.LAYOUT_DEFAULT }
 };
 
-// --- selection via raycast (click, not drag) ---
+// --- selection via raycast (click / double-click, not drag) ---
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let down = null;
+
+function pickPainting(clientX, clientY) {
+  pointer.x = (clientX / innerWidth) * 2 - 1;
+  pointer.y = -(clientY / innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(gallery.getPaintingMeshes(), false);
+  return hits.length ? hits[0].object.userData.painting : null;
+}
 
 renderer.domElement.addEventListener('pointerdown', (e) => {
   down = { x: e.clientX, y: e.clientY, t: performance.now() };
@@ -57,11 +65,14 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   const dt = performance.now() - down.t;
   down = null;
   if (moved > 6 || dt > 400) return; // it was a drag
-  pointer.x = (e.clientX / innerWidth) * 2 - 1;
-  pointer.y = -(e.clientY / innerHeight) * 2 + 1;
-  raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(gallery.getPaintingMeshes(), false);
-  if (hits.length) select(hits[0].object.userData.painting);
+  const p = pickPainting(e.clientX, e.clientY);
+  if (p) select(p);
+});
+renderer.domElement.addEventListener('dblclick', (e) => {
+  const p = pickPainting(e.clientX, e.clientY);
+  if (!p) return;
+  select(p);
+  enterPainting();
 });
 
 function select(p) {
@@ -71,15 +82,28 @@ function select(p) {
   applyLook(sd.look());
 }
 
-// A good default view: stand inside the room looking at the front wall, so the
-// paintings (not the empty centre) are framed.
+// Orbit limits and clip planes scale with the room so large layouts stay visible.
+function updateCameraForRoom(dims) {
+  if (!dims) return;
+  const L = dims.wallLen;
+  const h = dims.height || CONFIG.WALL_HEIGHT_M;
+  camera.near = 0.1;
+  camera.far = Math.max(300, L * 3 + h * 2);
+  camera.updateProjectionMatrix();
+  controls.minDistance = 0.5;
+  controls.maxDistance = Math.max(L * 0.9, 10);
+}
+
+// Default view: camera near the front wall but orbit target at room centre so
+// the user can freely look at all four walls.
 function galleryView() {
   const L = gallery.dims ? gallery.dims.wallLen : 16;
+  const h = gallery.dims?.height ?? CONFIG.WALL_HEIGHT_M;
   const z = -L / 2; // front wall
   const dist = Math.min(8, L * 0.42);
   return {
     pos: new THREE.Vector3(0, 2.0, z + dist),
-    target: new THREE.Vector3(0, 1.8, z + 0.6)
+    target: new THREE.Vector3(0, h * 0.4, 0)
   };
 }
 
@@ -150,15 +174,15 @@ async function loadCatalog() {
     );
   }
   ui.populateFilters(buildFacets(stateApp.all));
-  rebuild(stateApp.all);
+  rebuild(stateApp.all, true);
   ui.hideLoading();
 }
 
-// A new filter result: reset to page 0 and render.
-function rebuild(list) {
+// A new filter result: reset to page 0 and render. reframe=true only on first load / ID lookup.
+function rebuild(list, reframe = false) {
   stateApp.filtered = list;
   stateApp.page = 0;
-  renderPage(true);
+  renderPage(reframe);
 }
 
 // Render the current page of the filtered set into the hall.
@@ -171,6 +195,7 @@ function renderPage(reframe) {
   const slice = stateApp.filtered.slice(start, start + pageSize);
   stateApp.visible = slice;
   gallery.build(slice, stateApp.layout);
+  updateCameraForRoom(gallery.dims);
   ui.setResultCount({
     from: total ? start + 1 : 0,
     to: start + slice.length,
@@ -210,18 +235,18 @@ const ui = new UI({
       }
     }
     if (p) {
-      rebuild([p]);
+      rebuild([p], true);
     } else {
       ui.setResultCount({ from: 0, to: 0, total: 0, page: 1, pages: 1 });
     }
   },
   onPrevPage: () => {
     stateApp.page -= 1;
-    renderPage(true);
+    renderPage(false);
   },
   onNextPage: () => {
     stateApp.page += 1;
-    renderPage(true);
+    renderPage(false);
   },
   onApplyLayout: (layout) => {
     stateApp.layout = {
@@ -234,7 +259,7 @@ const ui = new UI({
     const pageSize = layoutPageSize(stateApp.layout);
     const pages = Math.max(1, Math.ceil(stateApp.filtered.length / pageSize));
     stateApp.page = Math.min(stateApp.page, pages - 1);
-    renderPage(true);
+    renderPage(false);
   },
   onSD: (kind, v) => {
     if (kind === 'tlist') sd.setTList(v);
