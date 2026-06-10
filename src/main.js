@@ -18,7 +18,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const SCENE_BG = CONFIG.SCENE_BG;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(SCENE_BG);
-scene.fog = new THREE.FogExp2(SCENE_BG, 0.0025);
+// No fog — keeps the void pure black like the reference gallery view.
 
 // Tight near/far range keeps depth-buffer precision high so distant paintings
 // stay crisp and do not z-fight with their frames.

@@ -201,10 +201,6 @@ export class CollectionSphere {
 
   // Environment mode in sphere view: fog, background, spin rate, artist tile tint.
   applyEnvironmentLook(look, active) {
-    const baseFog = 0.0025;
-    if (this.scene.fog) {
-      this.scene.fog.density = baseFog + (active ? look.intensity * 0.014 : 0);
-    }
     if (active) {
       this.scene.background.setHSL(look.hueShift, 0.18 + look.contrast * 0.12, 0.07 + look.blend * 0.04);
     } else {

@@ -120,7 +120,8 @@ export class Gallery {
     this.envRoot.add(floor);
 
     // Ceiling (keeps the room from reading as an open void).
-    this.ceilingMat = new THREE.MeshStandardMaterial({ color: 0x191922, roughness: 1.0 });
+    // Black floor/ceiling/walls — paintings sit in a void (reference gallery look).
+    this.ceilingMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 1.0 });
     const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(wallLen, wallLen), this.ceilingMat);
     ceiling.rotation.x = Math.PI / 2;
     ceiling.position.y = h;
@@ -130,7 +131,7 @@ export class Gallery {
     this.wallMeshes = [];
     const mkWall = (x, z, ry) => {
       const mat = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
+        color: 0x000000,
         roughness: 0.92,
         metalness: 0.04,
         emissive: 0x000000
@@ -163,20 +164,14 @@ export class Gallery {
     this.artRoot.visible = !!on;
   }
 
-  // Environment manipulation: base colors stay fixed (white walls, black floor).
-  // Environment mode only adds a subtle emissive glow + fog so the defaults are
-  // preserved, clearly distinct from Painting mode and WITHOUT waving the walls.
+  // Environment mode: subtle emissive on room shell when sliders move (walls stay black at rest).
   applyEnvironmentLook(look, active) {
     if (!this.wallMeshes) return;
-    const amt = active ? look.intensity : 0; // 0..1 energy
+    const amt = active ? look.intensity : 0;
     const hue = look.hueShift;
 
     for (const w of this.wallMeshes) {
       w.material.emissive.setHSL(hue, 0.6, active ? look.blend * 0.08 : 0);
-    }
-
-    if (this.scene.fog) {
-      this.scene.fog.density = 0.0025 + (active ? amt * 0.01 : 0);
     }
   }
 
