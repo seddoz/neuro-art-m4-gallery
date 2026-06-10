@@ -175,6 +175,7 @@ export class Gallery {
   }
 
   update(dt) {
+    this.mirrors.tick();
     for (const p of this.paintings) p.update(dt);
   }
 }
