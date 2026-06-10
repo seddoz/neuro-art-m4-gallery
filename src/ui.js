@@ -83,6 +83,13 @@ export class UI {
       this.h.onApplyLayout(this.readLayout());
     });
 
+    this.mirrorBtn = document.getElementById('mirror-toggle');
+    this.mirrorBtn?.addEventListener('click', () => {
+      const on = this.mirrorBtn.classList.toggle('active');
+      this.setMirrorLabel(on);
+      this.h.onMirrorToggle(on);
+    });
+
     // SD sliders
     this._slider('s-tlist', 'o-tlist', (v) => this.h.onSD('tlist', v));
     this._slider('s-guidance', 'o-guidance', (v) => this.h.onSD('guidance', v));
@@ -179,6 +186,12 @@ export class UI {
 
   setAnimationLabel(on) {
     this.animBtn.textContent = on ? 'Animation Off' : 'Animation On';
+  }
+
+  setMirrorLabel(on) {
+    if (!this.mirrorBtn) return;
+    this.mirrorBtn.textContent = on ? 'Mirror room: On' : 'Mirror room: Off';
+    this.mirrorBtn.classList.toggle('active', on);
   }
 
   setSdStatus(online) {

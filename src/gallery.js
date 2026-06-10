@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { Painting, enqueueTexture, resetTextureQueue } from './painting.js';
 import { packWallColumns, paintingSizeM } from './wallPack.js';
+import { MirrorRoom } from './mirrors.js';
 
 // Builds the 3D exhibition space and lays paintings along its walls using
 // real cm dimensions. Holds the "environment" that the Environment mode
@@ -16,6 +17,8 @@ export class Gallery {
     this.root.add(this.envRoot, this.artRoot);
     this.scene.add(this.root);
     this.paintings = [];
+    this.mirrorOn = false;
+    this.mirrors = new MirrorRoom(this.root);
     this._buildLights();
   }
 
@@ -80,6 +83,8 @@ export class Gallery {
     this.layout = { ...layout, perWall, rows, hGap, vGap };
 
     this._buildEnvironment(wallLen, wallHeight);
+    this.mirrors.rebuild(wallLen, wallHeight);
+    this.setMirrorEnabled(this.mirrorOn);
 
     const half = wallLen / 2;
     const walls = [
@@ -140,6 +145,12 @@ export class Gallery {
     mkWall(wallLen / 2, 0, -Math.PI / 2);
 
     // Corner columns removed per client request; room is left clear.
+  }
+
+  setMirrorEnabled(on) {
+    this.mirrorOn = !!on;
+    this.mirrors.setEnabled(this.mirrorOn);
+    this.envRoot.visible = !this.mirrorOn;
   }
 
   // Environment manipulation: base colors stay fixed (white walls, black floor).

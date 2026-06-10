@@ -126,7 +126,8 @@ const stateApp = {
   selected: null,
   animating: false,
   cameraTween: null,
-  layout: { ...CONFIG.LAYOUT_DEFAULT }
+  layout: { ...CONFIG.LAYOUT_DEFAULT },
+  mirrorOn: false
 };
 
 // --- selection via raycast (click / double-click, not drag) ---
@@ -282,6 +283,7 @@ function renderPage(reframe) {
   stateApp.visible = slice;
   gallery.build(slice, stateApp.layout);
   updateCameraForRoom(gallery.dims);
+  gallery.setMirrorEnabled(stateApp.mirrorOn);
   ui.setResultCount({
     from: total ? start + 1 : 0,
     to: start + slice.length,
@@ -358,6 +360,10 @@ const ui = new UI({
     if (!p) return;
     p.setAnimated(!p.animated);
     ui.setAnimationLabel(p.animated);
+  },
+  onMirrorToggle: (on) => {
+    stateApp.mirrorOn = on;
+    gallery.setMirrorEnabled(on);
   },
   onEnter: enterPainting,
   onExit: exitToGallery
