@@ -129,7 +129,8 @@ const stateApp = {
   animating: false,
   cameraTween: null,
   layout: { ...CONFIG.LAYOUT_DEFAULT },
-  mirrorOn: false
+  mirrorOn: false,
+  mirrorQuality: CONFIG.MIRROR.defaultQuality
 };
 
 // --- selection via raycast (click / double-click, not drag) ---
@@ -366,6 +367,10 @@ const ui = new UI({
   onMirrorToggle: (on) => {
     stateApp.mirrorOn = on;
     gallery.setMirrorEnabled(on);
+  },
+  onMirrorQuality: (mode) => {
+    stateApp.mirrorQuality = mode;
+    gallery.setMirrorQuality(mode);
   },
   onEnter: enterPainting,
   onExit: exitToGallery

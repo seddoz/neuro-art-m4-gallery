@@ -30,14 +30,19 @@ export const CONFIG = {
   LAYOUT_MAX_TOTAL: 800,
   LAYOUT_MIN_GAP: 0.02,
   // Planar mirror room. Textures sized by surface metres (sharp); per-frame cost
-  // controlled by refreshing fewer planes per frame at high painting counts.
+  // controlled by how many planes refresh per frame. Quality presets let the user
+  // pick the tradeoff directly.
   MIRROR: {
     pixelsPerMeter: 128,
-    texMin: 512,
-    texMax: 1024,
     multisample: 0,
     clipBias: 0.003,
-    color: 0x808080
+    color: 0x808080,
+    defaultQuality: 'balanced',
+    quality: {
+      live: { perFrame: 6, texMin: 512, texMax: 1024, ceiling: true },
+      balanced: { perFrame: 2, texMin: 512, texMax: 1024, ceiling: true },
+      performance: { perFrame: 1, texMin: 256, texMax: 512, ceiling: false }
+    }
   },
   SD_ADDR: {
     tlist: '/t_list',

@@ -90,6 +90,11 @@ export class UI {
       this.h.onMirrorToggle(on);
     });
 
+    this.mirrorQuality = document.getElementById('mirror-quality');
+    this.mirrorQuality?.addEventListener('change', () => {
+      this.h.onMirrorQuality(this.mirrorQuality.value);
+    });
+
     // SD sliders
     this._slider('s-tlist', 'o-tlist', (v) => this.h.onSD('tlist', v));
     this._slider('s-guidance', 'o-guidance', (v) => this.h.onSD('guidance', v));

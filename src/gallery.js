@@ -106,7 +106,7 @@ export class Gallery {
       }
     }
 
-    this.mirrors.rebuild(wallLen, wallHeight, this.paintings.length);
+    this.mirrors.rebuild(wallLen, wallHeight);
     this.setMirrorEnabled(this.mirrorOn);
 
     return this.paintings;
@@ -153,6 +153,10 @@ export class Gallery {
     this.mirrorOn = !!on;
     this.mirrors.setEnabled(this.mirrorOn);
     this.envRoot.visible = !this.mirrorOn;
+  }
+
+  setMirrorQuality(mode) {
+    this.mirrors.setQuality(mode);
   }
 
   // Environment manipulation: base colors stay fixed (white walls, black floor).

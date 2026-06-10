@@ -11,28 +11,6 @@ function pow2Clamp(v, min, max) {
   return Math.max(min, Math.min(max, p));
 }
 
-// Texture size proportional to the surface's real metres so large walls stay
-// sharp instead of pixelated. Capped so memory/bandwidth stay sane.
-function texFor(wMeters, hMeters) {
-  const ppm = CONFIG.MIRROR.pixelsPerMeter;
-  const min = CONFIG.MIRROR.texMin;
-  const max = CONFIG.MIRROR.texMax;
-  return {
-    w: pow2Clamp(wMeters * ppm, min, max),
-    h: pow2Clamp(hMeters * ppm, min, max)
-  };
-}
-
-// How many reflector planes to refresh per frame, given total plane count and
-// scene heaviness. Cost is decoupled from texture resolution: we keep textures
-// SHARP and instead refresh fewer planes per frame (each shows its last frame in
-// between). This removes the lag without the pixelation of low-res textures.
-function updatesPerFrame(paintingCount) {
-  if (paintingCount <= 40) return 6; // light: refresh all every frame
-  if (paintingCount <= 120) return 2;
-  return 1;
-}
-
 // Planar reflectors (webgl_mirror). Reflectors live on layer 1; the reflection
 // camera renders layer 0 only, so mirrors never recurse into each other.
 export class MirrorRoom {
@@ -48,6 +26,22 @@ export class MirrorRoom {
     this._perFrame = 6;
     this._active = new Set();
     this._anisotropy = 1;
+    this.quality = CONFIG.MIRROR.defaultQuality || 'balanced';
+  }
+
+  _preset() {
+    return CONFIG.MIRROR.quality[this.quality] || CONFIG.MIRROR.quality.balanced;
+  }
+
+  // Texture size proportional to the surface's real metres so large walls stay
+  // sharp instead of pixelated. Capped per quality preset.
+  _texFor(wMeters, hMeters) {
+    const p = this._preset();
+    const ppm = CONFIG.MIRROR.pixelsPerMeter;
+    return {
+      w: pow2Clamp(wMeters * ppm, p.texMin, p.texMax),
+      h: pow2Clamp(hMeters * ppm, p.texMin, p.texMax)
+    };
   }
 
   // Choose which planes may refresh this frame (round-robin). During warmup all
@@ -69,7 +63,7 @@ export class MirrorRoom {
 
   _mkReflector(geometry, index, wMeters, hMeters) {
     const m = CONFIG.MIRROR;
-    const { w, h } = texFor(wMeters, hMeters);
+    const { w, h } = this._texFor(wMeters, hMeters);
     const r = new Reflector(geometry, {
       clipBias: m.clipBias,
       color: m.color,
@@ -109,9 +103,10 @@ export class MirrorRoom {
     return r;
   }
 
-  rebuild(wallLen, height, paintingCount = 0) {
+  rebuild(wallLen, height) {
     this.dispose();
-    this._perFrame = updatesPerFrame(paintingCount);
+    this._lastDims = { wallLen, height };
+    this._perFrame = this._preset().perFrame;
     this._cursor = 0;
     this._warmup = this.enabled ? 12 : 0;
 
@@ -123,9 +118,11 @@ export class MirrorRoom {
     const floor = this._mkReflector(new THREE.PlaneGeometry(L, L), idx++, L, L);
     floor.rotation.x = -Math.PI / 2;
 
-    const ceiling = this._mkReflector(new THREE.PlaneGeometry(L, L), idx++, L, L);
-    ceiling.rotation.x = Math.PI / 2;
-    ceiling.position.y = h;
+    if (this._preset().ceiling) {
+      const ceiling = this._mkReflector(new THREE.PlaneGeometry(L, L), idx++, L, L);
+      ceiling.rotation.x = Math.PI / 2;
+      ceiling.position.y = h;
+    }
 
     const front = this._mkReflector(new THREE.PlaneGeometry(L, h), idx++, L, h);
     front.position.set(0, h / 2, -half);
@@ -141,6 +138,15 @@ export class MirrorRoom {
     const right = this._mkReflector(new THREE.PlaneGeometry(L, h), idx++, L, h);
     right.position.set(half, h / 2, 0);
     right.rotation.y = -Math.PI / 2;
+  }
+
+  // Switch quality preset; rebuild reflectors (texture size / ceiling change).
+  setQuality(mode) {
+    if (!CONFIG.MIRROR.quality[mode]) return;
+    this.quality = mode;
+    if (this._lastDims) {
+      this.rebuild(this._lastDims.wallLen, this._lastDims.height);
+    }
   }
 
   setEnabled(on) {
