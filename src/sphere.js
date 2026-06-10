@@ -61,7 +61,6 @@ export class CollectionSphere {
     this.autoRotate = true;
     this._dragTimer = null;
     this._rotateMul = 1;
-    this._envBg = new THREE.Color(CONFIG.SCENE_BG);
   }
 
   clear() {
@@ -199,13 +198,8 @@ export class CollectionSphere {
     }
   }
 
-  // Environment mode in sphere view: fog, background, spin rate, artist tile tint.
+  // SD sliders: spin rate + artist placeholder tint only (backdrop stays black, walls are white matte).
   applyEnvironmentLook(look, active) {
-    if (active) {
-      this.scene.background.setHSL(look.hueShift, 0.18 + look.contrast * 0.12, 0.07 + look.blend * 0.04);
-    } else {
-      this.scene.background.copy(this._envBg);
-    }
     this._rotateMul = active ? 0.4 + look.blend * 1.6 : 1;
     for (const m of this.artistMeshes) {
       const mat = m.material;

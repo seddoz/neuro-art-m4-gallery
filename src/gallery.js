@@ -113,25 +113,23 @@ export class Gallery {
   }
 
   _buildEnvironment(wallLen, h = CONFIG.WALL_HEIGHT_M) {
-    // Floor
-    this.floorMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.9 });
+    const { WALL_COLOR, FLOOR_COLOR, CEILING_COLOR } = CONFIG;
+
+    this.floorMat = new THREE.MeshStandardMaterial({ color: FLOOR_COLOR, roughness: 0.9 });
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(wallLen, wallLen), this.floorMat);
     floor.rotation.x = -Math.PI / 2;
     this.envRoot.add(floor);
 
-    // Ceiling (keeps the room from reading as an open void).
-    // Black floor/ceiling/walls — paintings sit in a void (reference gallery look).
-    this.ceilingMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 1.0 });
+    this.ceilingMat = new THREE.MeshStandardMaterial({ color: CEILING_COLOR, roughness: 1.0 });
     const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(wallLen, wallLen), this.ceilingMat);
     ceiling.rotation.x = Math.PI / 2;
     ceiling.position.y = h;
     this.envRoot.add(ceiling);
 
-    // Walls (4). Flat geometry. Stored so Environment mode can re-tint them.
     this.wallMeshes = [];
     const mkWall = (x, z, ry) => {
       const mat = new THREE.MeshStandardMaterial({
-        color: 0x000000,
+        color: WALL_COLOR,
         roughness: 0.92,
         metalness: 0.04,
         emissive: 0x000000
@@ -146,8 +144,15 @@ export class Gallery {
     mkWall(0, wallLen / 2, Math.PI);
     mkWall(-wallLen / 2, 0, Math.PI / 2);
     mkWall(wallLen / 2, 0, -Math.PI / 2);
+  }
 
-    // Corner columns removed per client request; room is left clear.
+  // Rebuild matte shell + mirrors (e.g. expand room to contain the collection sphere).
+  rebuildEnvironment(wallLen, height) {
+    this.dims = { wallLen, height: height ?? this.dims?.height ?? CONFIG.WALL_HEIGHT_M };
+    this.envRoot.clear();
+    this._buildEnvironment(wallLen, this.dims.height);
+    this.mirrors.rebuild(wallLen, this.dims.height);
+    this.setMirrorEnabled(this.mirrorOn);
   }
 
   setMirrorEnabled(on) {
@@ -164,12 +169,10 @@ export class Gallery {
     this.artRoot.visible = !!on;
   }
 
-  // Environment mode: subtle emissive on room shell when sliders move (walls stay black at rest).
+  // Matte room only (mirror off): subtle emissive on white walls when SD sliders move.
   applyEnvironmentLook(look, active) {
-    if (!this.wallMeshes) return;
-    const amt = active ? look.intensity : 0;
+    if (!this.wallMeshes || this.mirrorOn) return;
     const hue = look.hueShift;
-
     for (const w of this.wallMeshes) {
       w.material.emissive.setHSL(hue, 0.6, active ? look.blend * 0.08 : 0);
     }

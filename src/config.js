@@ -5,6 +5,9 @@
 export const CONFIG = {
   CM_TO_UNIT: 0.01,
   SCENE_BG: 0x000000,
+  WALL_COLOR: 0xffffff,
+  FLOOR_COLOR: 0x000000,
+  CEILING_COLOR: 0x000000,
   WALL_HEIGHT_M: 4.5,
   ROOM_PADDING_M: 2.0,
   // Default room camera: back of hall, centred, looking at front wall (z = -L/2).
@@ -42,7 +45,7 @@ export const CONFIG = {
     pixelsPerMeter: 128,
     multisample: 0,
     clipBias: 0.003,
-    color: 0x808080,
+    color: 0x000000,
     defaultQuality: 'live',
     quality: {
       live: { perFrame: 6, texMin: 512, texMax: 1024, ceiling: true },

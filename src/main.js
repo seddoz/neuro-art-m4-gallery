@@ -325,17 +325,48 @@ function tweenCamera(toPos, toTarget) {
 }
 
 // --- SD look routing by mode ---
+function syncSpaceBackdrop() {
+  scene.background.setHex(CONFIG.SCENE_BG);
+}
+
+function sphereRoomDims(base) {
+  const r = sphere.radius || CONFIG.SPHERE.defaultRadius;
+  const cy = sphere.centerY;
+  const needH = cy + r + 0.8;
+  const needL = Math.max(base?.wallLen ?? 12, (r + 1.2) * 2.5);
+  return {
+    wallLen: needL,
+    height: Math.max(base?.height ?? CONFIG.WALL_HEIGHT_M, needH)
+  };
+}
+
 function applyLook(look) {
   ui.setSdStatus(sd.bridgeOnline);
+  syncSpaceBackdrop();
+
   const paintingMode = stateApp.mode === 'painting';
   const envActive = !paintingMode;
+  const mirror = stateApp.mirrorOn;
 
+  if (mirror) {
+    // Mirror on: pure black void; paintings/sphere only (no matte wall tint).
+    if (stateApp.view === 'sphere') {
+      sphere.applyLook(look, paintingMode, stateApp.selected);
+    } else {
+      for (const p of gallery.paintings) {
+        p.applyLook(look, paintingMode && p === stateApp.selected);
+      }
+    }
+    return;
+  }
+
+  // Mirror off: white matte room shell + black floor/ceiling.
   if (stateApp.view === 'sphere') {
     sphere.applyEnvironmentLook(look, envActive);
     sphere.applyLook(look, paintingMode, stateApp.selected);
-    if (stateApp.mirrorOn) gallery.applyEnvironmentLook(look, envActive);
-  } else {
-    gallery.applyEnvironmentLook(look, envActive);
+  }
+  gallery.applyEnvironmentLook(look, envActive);
+  if (stateApp.view === 'room') {
     for (const p of gallery.paintings) {
       p.applyLook(look, paintingMode && p === stateApp.selected);
     }
@@ -352,6 +383,10 @@ function ensureGalleryRoom() {
 
 function rebuildSphere(reframe = false) {
   sphere.build(stateApp.filtered, stateApp.authors, gallery.dims);
+  const fit = sphereRoomDims(gallery.dims);
+  if (!gallery.dims || gallery.dims.height < fit.height || gallery.dims.wallLen < fit.wallLen) {
+    gallery.rebuildEnvironment(fit.wallLen, fit.height);
+  }
   updateCameraForSphere();
   if (stateApp.view === 'sphere') {
     ui.setResultCount({
@@ -528,6 +563,7 @@ const ui = new UI({
     stateApp.mirrorOn = on;
     if (stateApp.view === 'sphere') ensureGalleryRoom();
     gallery.setMirrorEnabled(on);
+    applyLook(sd.look());
   },
   onMirrorQuality: (mode) => {
     stateApp.mirrorQuality = mode;
