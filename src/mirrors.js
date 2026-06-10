@@ -4,23 +4,37 @@ import { CONFIG } from './config.js';
 
 const MIRROR_LAYER = 1;
 
-// Scale mirror cost with visible painting count (each reflector re-renders the scene).
-function qualityForCount(n) {
-  const m = CONFIG.MIRROR;
-  if (n <= 32) {
-    return { tex: m.textureWidthMax ?? 512, stride: 1, ceiling: true };
-  }
-  if (n <= 72) {
-    return { tex: 256, stride: 2, ceiling: true };
-  }
-  if (n <= 160) {
-    return { tex: 256, stride: 2, ceiling: false };
-  }
-  return { tex: m.textureWidthMin ?? 128, stride: 3, ceiling: false };
+// Nearest power-of-two within [min, max] (render targets prefer pow2).
+function pow2Clamp(v, min, max) {
+  let p = 1;
+  while (p < v) p *= 2;
+  return Math.max(min, Math.min(max, p));
+}
+
+// Texture size proportional to the surface's real metres so large walls stay
+// sharp instead of pixelated. Capped so memory/bandwidth stay sane.
+function texFor(wMeters, hMeters) {
+  const ppm = CONFIG.MIRROR.pixelsPerMeter;
+  const min = CONFIG.MIRROR.texMin;
+  const max = CONFIG.MIRROR.texMax;
+  return {
+    w: pow2Clamp(wMeters * ppm, min, max),
+    h: pow2Clamp(hMeters * ppm, min, max)
+  };
+}
+
+// How many reflector planes to refresh per frame, given total plane count and
+// scene heaviness. Cost is decoupled from texture resolution: we keep textures
+// SHARP and instead refresh fewer planes per frame (each shows its last frame in
+// between). This removes the lag without the pixelation of low-res textures.
+function updatesPerFrame(paintingCount) {
+  if (paintingCount <= 40) return 6; // light: refresh all every frame
+  if (paintingCount <= 120) return 2;
+  return 1;
 }
 
 // Planar reflectors (webgl_mirror). Reflectors live on layer 1; the reflection
-// camera renders layer 0 only so mirrors never recurse into each other.
+// camera renders layer 0 only, so mirrors never recurse into each other.
 export class MirrorRoom {
   constructor(parent) {
     this.root = new THREE.Group();
@@ -29,37 +43,57 @@ export class MirrorRoom {
     parent.add(this.root);
     this.reflectors = [];
     this.enabled = false;
-    this._frame = 0;
+    this._cursor = 0;
     this._warmup = 0;
-    this._stride = 1;
+    this._perFrame = 6;
+    this._active = new Set();
+    this._anisotropy = 1;
   }
 
+  // Choose which planes may refresh this frame (round-robin). During warmup all
+  // refresh so nothing is ever shown black.
   tick() {
-    if (!this.enabled) return;
-    if (this._warmup > 0) this._warmup--;
-    this._frame++;
+    if (!this.enabled || this.reflectors.length === 0) return;
+    this._active.clear();
+    if (this._warmup > 0) {
+      this._warmup--;
+      for (let i = 0; i < this.reflectors.length; i++) this._active.add(i);
+      return;
+    }
+    const n = Math.min(this._perFrame, this.reflectors.length);
+    for (let i = 0; i < n; i++) {
+      this._active.add(this._cursor % this.reflectors.length);
+      this._cursor++;
+    }
   }
 
-  _shouldUpdate(index) {
-    if (this._warmup > 0) return true;
-    return (this._frame + index) % this._stride === 0;
-  }
-
-  _mkReflector(geometry, index) {
+  _mkReflector(geometry, index, wMeters, hMeters) {
     const m = CONFIG.MIRROR;
+    const { w, h } = texFor(wMeters, hMeters);
     const r = new Reflector(geometry, {
       clipBias: m.clipBias,
       color: m.color,
-      textureWidth: this._tex,
-      textureHeight: this._tex,
+      textureWidth: w,
+      textureHeight: h,
       multisample: m.multisample ?? 0
     });
     r.layers.set(MIRROR_LAYER);
 
     const orig = r.onBeforeRender.bind(r);
     r.onBeforeRender = (renderer, scene, camera) => {
-      if (!this.enabled || !this._shouldUpdate(index)) return;
+      if (!this.enabled || !this._active.has(index)) return;
 
+      // Sharpen grazing-angle reflections (floor especially) once we have a renderer.
+      const tex = r.getRenderTarget().texture;
+      if (this._anisotropy === 1) {
+        this._anisotropy = renderer.capabilities.getMaxAnisotropy();
+      }
+      if (tex.anisotropy !== this._anisotropy) {
+        tex.anisotropy = this._anisotropy;
+        tex.needsUpdate = true;
+      }
+
+      // Render layer 0 only so reflectors do not reflect each other (no recursion).
       const vCam = r.camera;
       const savedMask = vCam.layers.mask;
       vCam.layers.disableAll();
@@ -77,38 +111,34 @@ export class MirrorRoom {
 
   rebuild(wallLen, height, paintingCount = 0) {
     this.dispose();
-    const q = qualityForCount(paintingCount);
-    this._tex = q.tex;
-    this._stride = q.stride;
-    this._frame = 0;
-    this._warmup = this.enabled ? 10 : 0;
+    this._perFrame = updatesPerFrame(paintingCount);
+    this._cursor = 0;
+    this._warmup = this.enabled ? 12 : 0;
 
     const L = wallLen;
     const h = height;
     const half = L / 2;
 
     let idx = 0;
-    const floor = this._mkReflector(new THREE.PlaneGeometry(L, L), idx++);
+    const floor = this._mkReflector(new THREE.PlaneGeometry(L, L), idx++, L, L);
     floor.rotation.x = -Math.PI / 2;
 
-    if (q.ceiling) {
-      const ceiling = this._mkReflector(new THREE.PlaneGeometry(L, L), idx++);
-      ceiling.rotation.x = Math.PI / 2;
-      ceiling.position.y = h;
-    }
+    const ceiling = this._mkReflector(new THREE.PlaneGeometry(L, L), idx++, L, L);
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.y = h;
 
-    const front = this._mkReflector(new THREE.PlaneGeometry(L, h), idx++);
+    const front = this._mkReflector(new THREE.PlaneGeometry(L, h), idx++, L, h);
     front.position.set(0, h / 2, -half);
 
-    const back = this._mkReflector(new THREE.PlaneGeometry(L, h), idx++);
+    const back = this._mkReflector(new THREE.PlaneGeometry(L, h), idx++, L, h);
     back.position.set(0, h / 2, half);
     back.rotation.y = Math.PI;
 
-    const left = this._mkReflector(new THREE.PlaneGeometry(L, h), idx++);
+    const left = this._mkReflector(new THREE.PlaneGeometry(L, h), idx++, L, h);
     left.position.set(-half, h / 2, 0);
     left.rotation.y = Math.PI / 2;
 
-    const right = this._mkReflector(new THREE.PlaneGeometry(L, h), idx++);
+    const right = this._mkReflector(new THREE.PlaneGeometry(L, h), idx++, L, h);
     right.position.set(half, h / 2, 0);
     right.rotation.y = -Math.PI / 2;
   }
@@ -117,8 +147,8 @@ export class MirrorRoom {
     this.enabled = !!on;
     this.root.visible = this.enabled;
     if (this.enabled) {
-      this._frame = 0;
-      this._warmup = 10;
+      this._cursor = 0;
+      this._warmup = 12;
     }
   }
 

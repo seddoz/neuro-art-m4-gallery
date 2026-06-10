@@ -29,13 +29,15 @@ export const CONFIG = {
   LAYOUT_MAX_ROWS: 20,
   LAYOUT_MAX_TOTAL: 800,
   LAYOUT_MIN_GAP: 0.02,
-  // Planar mirror room — quality scales with visible painting count.
+  // Planar mirror room. Textures sized by surface metres (sharp); per-frame cost
+  // controlled by refreshing fewer planes per frame at high painting counts.
   MIRROR: {
-    textureWidthMax: 512,
-    textureWidthMin: 128,
+    pixelsPerMeter: 128,
+    texMin: 512,
+    texMax: 1024,
     multisample: 0,
     clipBias: 0.003,
-    color: 0x777777
+    color: 0x808080
   },
   SD_ADDR: {
     tlist: '/t_list',
