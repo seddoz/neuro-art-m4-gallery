@@ -28,8 +28,11 @@ controls.dampingFactor = 0.08;
 controls.target.set(0, 1.6, 0);
 controls.maxPolarAngle = Math.PI * 0.85;
 
-// WASD walk (moves camera + orbit target together).
-const MOVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD']);
+// WASD / arrow keys walk (moves camera + orbit target together).
+const MOVE_KEYS = new Set([
+  'KeyW', 'KeyA', 'KeyS', 'KeyD',
+  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'
+]);
 const keysDown = new Set();
 const MOVE_SPEED = 4; // m/s
 const _moveDir = new THREE.Vector3();
@@ -62,10 +65,10 @@ function applyKeyboardMove(dt) {
   _strafe.crossVectors(_lookFlat, THREE.Object3D.DEFAULT_UP).normalize();
 
   _moveDir.set(0, 0, 0);
-  if (keysDown.has('KeyW')) _moveDir.add(_lookFlat);
-  if (keysDown.has('KeyS')) _moveDir.sub(_lookFlat);
-  if (keysDown.has('KeyD')) _moveDir.add(_strafe);
-  if (keysDown.has('KeyA')) _moveDir.sub(_strafe);
+  if (keysDown.has('KeyW') || keysDown.has('ArrowUp')) _moveDir.add(_lookFlat);
+  if (keysDown.has('KeyS') || keysDown.has('ArrowDown')) _moveDir.sub(_lookFlat);
+  if (keysDown.has('KeyD') || keysDown.has('ArrowRight')) _moveDir.add(_strafe);
+  if (keysDown.has('KeyA') || keysDown.has('ArrowLeft')) _moveDir.sub(_strafe);
   if (_moveDir.lengthSq() === 0) return;
 
   _moveDir.normalize().multiplyScalar(MOVE_SPEED * dt);
