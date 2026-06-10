@@ -28,9 +28,9 @@ controls.dampingFactor = 0.08;
 controls.target.set(0, 1.6, 0);
 controls.maxPolarAngle = Math.PI * 0.85;
 
-// WASD / arrow keys walk (moves camera + orbit target together).
+// WASD / arrows / Q-E fly (moves camera + orbit target together).
 const MOVE_KEYS = new Set([
-  'KeyW', 'KeyA', 'KeyS', 'KeyD',
+  'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE',
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'
 ]);
 const keysDown = new Set();
@@ -58,20 +58,34 @@ addEventListener('blur', () => keysDown.clear(), true);
 function applyKeyboardMove(dt) {
   if (keysDown.size === 0 || stateApp.cameraTween) return;
 
-  camera.getWorldDirection(_lookFlat);
-  _lookFlat.y = 0;
-  if (_lookFlat.lengthSq() < 1e-6) return;
-  _lookFlat.normalize();
-  _strafe.crossVectors(_lookFlat, THREE.Object3D.DEFAULT_UP).normalize();
+  const forward = keysDown.has('KeyW') || keysDown.has('ArrowUp');
+  const back = keysDown.has('KeyS') || keysDown.has('ArrowDown');
+  const right = keysDown.has('KeyD') || keysDown.has('ArrowRight');
+  const left = keysDown.has('KeyA') || keysDown.has('ArrowLeft');
+  const up = keysDown.has('KeyQ');
+  const down = keysDown.has('KeyE');
+  if (!(forward || back || right || left || up || down)) return;
 
   _moveDir.set(0, 0, 0);
-  if (keysDown.has('KeyW') || keysDown.has('ArrowUp')) _moveDir.add(_lookFlat);
-  if (keysDown.has('KeyS') || keysDown.has('ArrowDown')) _moveDir.sub(_lookFlat);
-  if (keysDown.has('KeyD') || keysDown.has('ArrowRight')) _moveDir.add(_strafe);
-  if (keysDown.has('KeyA') || keysDown.has('ArrowLeft')) _moveDir.sub(_strafe);
+  if (forward || back || right || left) {
+    camera.getWorldDirection(_lookFlat);
+    _lookFlat.y = 0;
+    if (_lookFlat.lengthSq() > 1e-6) {
+      _lookFlat.normalize();
+      _strafe.crossVectors(_lookFlat, THREE.Object3D.DEFAULT_UP).normalize();
+      if (forward) _moveDir.add(_lookFlat);
+      if (back) _moveDir.sub(_lookFlat);
+      if (right) _moveDir.add(_strafe);
+      if (left) _moveDir.sub(_strafe);
+      if (_moveDir.lengthSq() > 0) {
+        _moveDir.normalize().multiplyScalar(MOVE_SPEED * dt);
+      }
+    }
+  }
+  if (up) _moveDir.y += MOVE_SPEED * dt;
+  if (down) _moveDir.y -= MOVE_SPEED * dt;
   if (_moveDir.lengthSq() === 0) return;
 
-  _moveDir.normalize().multiplyScalar(MOVE_SPEED * dt);
   camera.position.add(_moveDir);
   controls.target.add(_moveDir);
   clampCameraToRoom();
@@ -81,16 +95,22 @@ function clampCameraToRoom() {
   const dims = gallery.dims;
   if (!dims) return;
   const half = dims.wallLen / 2 - 0.6;
+  const minY = 0.8;
+  const maxY = (dims.height || CONFIG.WALL_HEIGHT_M) - 0.4;
+
   const ox = camera.position.x;
+  const oy = camera.position.y;
   const oz = camera.position.z;
   const cx = THREE.MathUtils.clamp(ox, -half, half);
+  const cy = THREE.MathUtils.clamp(oy, minY, maxY);
   const cz = THREE.MathUtils.clamp(oz, -half, half);
   const dx = cx - ox;
+  const dy = cy - oy;
   const dz = cz - oz;
-  if (dx === 0 && dz === 0) return;
-  camera.position.x = cx;
-  camera.position.z = cz;
+  if (dx === 0 && dy === 0 && dz === 0) return;
+  camera.position.set(cx, cy, cz);
   controls.target.x += dx;
+  controls.target.y += dy;
   controls.target.z += dz;
 }
 
