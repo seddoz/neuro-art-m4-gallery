@@ -103,7 +103,7 @@ export class CollectionSphere {
       const p = new Painting(data, { framed: false });
       const { w, h } = tileSize(data.widthCm, data.heightCm);
       p.mesh.scale.set(w / p.sizeM.w, h / p.sizeM.h, 1);
-      p.sizeM = { w, h };
+      p.syncNeonPlateSize(w, h);
       p.group.position.copy(pos);
       this.spin.add(p.group);
       this.paintings.push(p);

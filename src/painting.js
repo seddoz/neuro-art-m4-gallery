@@ -153,11 +153,10 @@ export class Painting {
       this.group.add(this.frame);
     } else {
       this.frame = null;
-      this._addGlowShell(w, h);
     }
 
+    this._addNeonPlate(w, h);
     this._mirrorGlow = false;
-    this._glowHue = CONFIG.MIRROR.neonHue;
 
     this.sizeM = { w, h };
     this.animated = false;
@@ -165,51 +164,56 @@ export class Painting {
     // Texture is loaded via the throttled queue (enqueueTexture), not here.
   }
 
-  _addGlowShell(w, h) {
-    const d = Math.max(0.02, 0.02);
-    const geo = new THREE.BoxGeometry(w * 0.988, h * 0.988, d);
-    this.glowShell = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-      color: 0x000000,
-      emissive: 0x000000,
-      emissiveIntensity: 1,
-      roughness: 0.45,
-      metalness: 0.25,
-      toneMapped: false
-    }));
-    this.glowShell.visible = false;
-    this.glowShell.renderOrder = 1;
-    this.glowShell.position.z = -d / 2 - 0.004;
-    this.group.add(this.glowShell);
+  // Flat neon backing — exact painting size (mirror mode only). Avoids thick box side glow.
+  _addNeonPlate(w, h) {
+    this.neonPlate = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, h),
+      new THREE.MeshStandardMaterial({
+        color: 0x000000,
+        emissive: 0x000000,
+        emissiveIntensity: 1,
+        roughness: 0.35,
+        metalness: 0.2,
+        toneMapped: false,
+        side: THREE.DoubleSide
+      })
+    );
+    this.neonPlate.visible = false;
+    this.neonPlate.renderOrder = 1;
+    this.neonPlate.position.z = -0.008;
+    this.group.add(this.neonPlate);
+  }
+
+  // Match neon plate to the displayed tile size (sphere scales paintings down/up).
+  syncNeonPlateSize(w, h) {
+    this.sizeM = { w, h };
+    if (!this.neonPlate) return;
+    this.neonPlate.geometry.dispose();
+    this.neonPlate.geometry = new THREE.PlaneGeometry(w, h);
+    this.neonPlate.position.z = -0.008;
   }
 
   _glowMeshes() {
-    return [this.frame, this.glowShell].filter(Boolean);
+    return [this.neonPlate].filter(Boolean);
   }
 
   setMirrorGlow(on, hue = CONFIG.MIRROR.neonHue) {
     this._mirrorGlow = !!on;
-    this._glowHue = hue;
-    const neon = new THREE.Color().setHSL(hue, 1, 0.52);
+    const neon = new THREE.Color().setHSL(hue, 1, 0.5);
     const base = CONFIG.MIRROR.neonEmissive;
 
     if (this.frame) {
-      if (on) {
-        this.frame.material.emissive.copy(neon);
-        this.frame.material.emissiveIntensity = base;
-      } else {
-        this.frame.material.emissive.setHex(0x000000);
-        this.frame.material.emissiveIntensity = 1;
-      }
+      this.frame.material.emissive.setHex(0x000000);
+      this.frame.material.emissiveIntensity = 1;
     }
-    if (this.glowShell) {
-      this.glowShell.visible = on;
-      if (on) {
-        this.glowShell.material.emissive.copy(neon);
-        this.glowShell.material.emissiveIntensity = base;
-      } else {
-        this.glowShell.material.emissive.setHex(0x000000);
-        this.glowShell.material.emissiveIntensity = 1;
-      }
+    if (!this.neonPlate) return;
+    this.neonPlate.visible = on;
+    if (on) {
+      this.neonPlate.material.emissive.copy(neon);
+      this.neonPlate.material.emissiveIntensity = base;
+    } else {
+      this.neonPlate.material.emissive.setHex(0x000000);
+      this.neonPlate.material.emissiveIntensity = 1;
     }
   }
 
@@ -284,9 +288,9 @@ export class Painting {
       this.frame.geometry.dispose();
       this.frame.material.dispose();
     }
-    if (this.glowShell) {
-      this.glowShell.geometry.dispose();
-      this.glowShell.material.dispose();
+    if (this.neonPlate) {
+      this.neonPlate.geometry.dispose();
+      this.neonPlate.material.dispose();
     }
     const t = this.material.uniforms.uMap.value;
     if (t && t.dispose) t.dispose();

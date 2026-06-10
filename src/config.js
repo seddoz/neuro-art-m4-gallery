@@ -48,7 +48,7 @@ export const CONFIG = {
     color: 0x000000,
     defaultQuality: 'live',
     neonEmissive: 2.8,
-    neonHue: 0.55,
+    neonHue: 0.61,
     quality: {
       live: { perFrame: 6, texMin: 512, texMax: 1024, ceiling: true },
       balanced: { perFrame: 2, texMin: 512, texMax: 1024, ceiling: true },
