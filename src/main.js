@@ -66,7 +66,6 @@ addEventListener('keyup', (e) => {
 addEventListener('blur', () => keysDown.clear(), true);
 
 function applyKeyboardMove(dt) {
-  if (stateApp.view === 'sphere') return;
   if (keysDown.size === 0 || stateApp.cameraTween) return;
 
   const forward = keysDown.has('KeyW') || keysDown.has('ArrowUp');
@@ -99,7 +98,31 @@ function applyKeyboardMove(dt) {
 
   camera.position.add(_moveDir);
   controls.target.add(_moveDir);
-  clampCameraToRoom();
+  if (stateApp.view === 'sphere') clampCameraToSphere();
+  else clampCameraToRoom();
+}
+
+function clampCameraToSphere() {
+  const cy = sphere.centerY;
+  const r = sphere.radius || CONFIG.SPHERE.defaultRadius;
+  const half = r * 2.5;
+  const minY = 0.5;
+  const maxY = cy + r * 1.5;
+
+  const ox = camera.position.x;
+  const oy = camera.position.y;
+  const oz = camera.position.z;
+  const cx = THREE.MathUtils.clamp(ox, -half, half);
+  const cyCam = THREE.MathUtils.clamp(oy, minY, maxY);
+  const cz = THREE.MathUtils.clamp(oz, -half, half);
+  const dx = cx - ox;
+  const dy = cyCam - oy;
+  const dz = cz - oz;
+  if (dx === 0 && dy === 0 && dz === 0) return;
+  camera.position.set(cx, cyCam, cz);
+  controls.target.x += dx;
+  controls.target.y += dy;
+  controls.target.z += dz;
 }
 
 function clampCameraToRoom() {
@@ -216,20 +239,21 @@ function updateCameraForRoom(dims) {
 
 function updateCameraForSphere() {
   const r = sphere.radius || CONFIG.SPHERE.defaultRadius;
-  const cy = CONFIG.SPHERE.centerY;
-  camera.near = 0.1;
-  camera.far = Math.max(200, r * 8);
+  const cy = sphere.centerY;
+  camera.near = 0.05;
+  camera.far = Math.max(200, r * 10);
   camera.updateProjectionMatrix();
-  controls.minDistance = r * 0.55;
-  controls.maxDistance = r * 2.8;
+  controls.minDistance = 0.15;
+  controls.maxDistance = r * 3.5;
+  controls.enableZoom = true;
   controls.target.set(0, cy, 0);
 }
 
 function sphereView() {
   const r = sphere.radius || CONFIG.SPHERE.defaultRadius;
-  const cy = CONFIG.SPHERE.centerY;
+  const cy = sphere.centerY;
   return {
-    pos: new THREE.Vector3(0, cy + r * 0.15, r * 1.35),
+    pos: new THREE.Vector3(0, cy + r * 0.1, r * 1.4),
     target: new THREE.Vector3(0, cy, 0)
   };
 }
@@ -260,6 +284,7 @@ function enterPainting() {
   const dist = Math.max(p.sizeM.w, p.sizeM.h) * 1.7 + 0.5;
   const shift = right.multiplyScalar(p.sizeM.w * 0.35);
   const camTarget = worldPos.clone().add(normal.multiplyScalar(dist)).add(shift);
+  controls.minDistance = 0.1;
   tweenCamera(camTarget, worldPos.clone().add(shift));
   p.setAnimated(true);
   stateApp.animating = true;
@@ -268,10 +293,12 @@ function enterPainting() {
 
 function exitToGallery() {
   if (stateApp.view === 'sphere') {
+    updateCameraForSphere();
     const v = sphereView();
     tweenCamera(v.pos, v.target);
     return;
   }
+  updateCameraForRoom(gallery.dims);
   const v = galleryView();
   tweenCamera(v.pos, v.target);
 }
@@ -393,7 +420,6 @@ function renderPage(reframe) {
   gallery.build(slice, stateApp.layout);
   updateCameraForRoom(gallery.dims);
   gallery.setMirrorEnabled(stateApp.mirrorOn);
-  rebuildSphere(false);
   ui.setResultCount({
     from: total ? start + 1 : 0,
     to: start + slice.length,

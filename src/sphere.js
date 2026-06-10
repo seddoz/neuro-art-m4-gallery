@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { Painting, enqueueTexture, resetTextureQueue } from './painting.js';
+import { Painting, enqueueTexture } from './painting.js';
 
 const loader = new THREE.TextureLoader();
 
@@ -48,7 +48,7 @@ export class CollectionSphere {
   constructor(scene) {
     this.scene = scene;
     this.root = new THREE.Group();
-    this.root.position.set(0, CONFIG.SPHERE.centerY, 0);
+    this.root.position.set(0, CONFIG.SPHERE.defaultRadius + CONFIG.SPHERE.floorClearance, 0);
     this.root.visible = false;
     scene.add(this.root);
 
@@ -63,7 +63,6 @@ export class CollectionSphere {
   }
 
   clear() {
-    resetTextureQueue();
     for (const p of this.paintings) p.dispose();
     this.paintings = [];
     for (const m of this.artistMeshes) {
@@ -80,6 +79,8 @@ export class CollectionSphere {
 
     const L = roomDims?.wallLen ?? 16;
     this.radius = Math.min(L, CONFIG.SPHERE.maxRoomLen) * CONFIG.SPHERE.radiusFactor;
+    // Lift sphere so its bottom sits above the floor (y = 0).
+    this.root.position.y = this.radius + CONFIG.SPHERE.floorClearance;
 
     const maxP = CONFIG.SPHERE.maxPaintings;
     const maxA = CONFIG.SPHERE.maxArtists;
@@ -146,6 +147,10 @@ export class CollectionSphere {
 
   setVisible(on) {
     this.root.visible = !!on;
+  }
+
+  get centerY() {
+    return this.root.position.y;
   }
 
   pauseAutoRotate() {

@@ -46,7 +46,7 @@ export const CONFIG = {
   },
   // Centre collection sphere (gallery-offers-3d style).
   SPHERE: {
-    centerY: 1.6,
+    floorClearance: 0.6,
     defaultRadius: 5,
     maxRoomLen: 12,
     radiusFactor: 0.35,
