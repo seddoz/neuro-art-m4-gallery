@@ -4,8 +4,14 @@
 // hence CM_TO_UNIT = 0.01 (1 cm = 0.01 m).
 export const CONFIG = {
   CM_TO_UNIT: 0.01,
+  SCENE_BG: 0x3a3844,
   WALL_HEIGHT_M: 4.5,
   ROOM_PADDING_M: 2.0,
+  // Default room camera: back of hall, centred, looking at front wall (z = -L/2).
+  ROOM_VIEW: {
+    backMarginMin: 2.0,
+    backMarginFactor: 0.1
+  },
   // How many paintings are placed in the 3D hall at once (a page). Filters
   // still run over the full working set; this caps geometry + texture memory.
   PAGE: 48,

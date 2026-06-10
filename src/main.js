@@ -15,9 +15,10 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
+const SCENE_BG = CONFIG.SCENE_BG;
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x14141c);
-scene.fog = new THREE.FogExp2(0x14141c, 0.004);
+scene.background = new THREE.Color(SCENE_BG);
+scene.fog = new THREE.FogExp2(SCENE_BG, 0.0025);
 
 // Tight near/far range keeps depth-buffer precision high so distant paintings
 // stay crisp and do not z-fight with their frames.
@@ -256,21 +257,24 @@ function sphereView() {
   };
 }
 
-// Default room view: centered on the front wall (z = -L/2), camera on axis, target at wall centre.
-function galleryView() {
-  const L = gallery.dims ? gallery.dims.wallLen : 16;
-  const h = gallery.dims?.height ?? CONFIG.WALL_HEIGHT_M;
+// Default room view: back of hall, centred on X, eye at painting height, facing front wall.
+function galleryView(dims = gallery.dims) {
+  const L = dims?.wallLen ?? 12;
+  const h = dims?.height ?? CONFIG.WALL_HEIGHT_M;
   const half = L / 2;
-  const standoff = Math.min(6, Math.max(2.5, L * 0.22));
-  const target = new THREE.Vector3(0, h / 2, -half);
-  const pos = new THREE.Vector3(0, h / 2, -half + standoff);
+  const rows = stateApp.layout?.rows ?? CONFIG.LAYOUT_DEFAULT.rows;
+  const eyeY = Math.min(h * 0.55, CONFIG.ROW_BASE_Y + CONFIG.ROW_STEP_Y * Math.max(0, rows - 1) * 0.5);
+  const target = new THREE.Vector3(0, eyeY, -half);
+  const backMargin = Math.max(CONFIG.ROOM_VIEW.backMarginMin, L * CONFIG.ROOM_VIEW.backMarginFactor);
+  const pos = new THREE.Vector3(0, eyeY, half - backMargin);
   return { pos, target };
 }
 
-function applyGalleryView() {
-  const v = galleryView();
+function applyGalleryView(dims) {
+  const v = galleryView(dims);
   camera.position.copy(v.pos);
   controls.target.copy(v.target);
+  controls.update();
 }
 
 // --- enter / exit camera moves ---
@@ -304,7 +308,8 @@ function exitToGallery() {
     return;
   }
   updateCameraForRoom(gallery.dims);
-  const v = galleryView();
+  applyGalleryView(gallery.dims);
+  const v = galleryView(gallery.dims);
   tweenCamera(v.pos, v.target);
 }
 
@@ -380,7 +385,7 @@ function applyView(view, reframe = false) {
     renderPage(reframe);
     updateCameraForRoom(gallery.dims);
     if (reframe) {
-      applyGalleryView();
+      applyGalleryView(gallery.dims);
       stateApp.cameraTween = null;
     }
   }
@@ -449,7 +454,7 @@ function renderPage(reframe) {
   select(null);
   applyLook(sd.look());
   if (reframe) {
-    applyGalleryView();
+    applyGalleryView(gallery.dims);
     stateApp.cameraTween = null;
   }
 }

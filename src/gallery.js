@@ -176,7 +176,7 @@ export class Gallery {
     }
 
     if (this.scene.fog) {
-      this.scene.fog.density = 0.004 + (active ? amt * 0.01 : 0);
+      this.scene.fog.density = 0.0025 + (active ? amt * 0.01 : 0);
     }
   }
 

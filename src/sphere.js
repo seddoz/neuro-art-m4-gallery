@@ -61,7 +61,7 @@ export class CollectionSphere {
     this.autoRotate = true;
     this._dragTimer = null;
     this._rotateMul = 1;
-    this._envBg = new THREE.Color(0x14141c);
+    this._envBg = new THREE.Color(CONFIG.SCENE_BG);
   }
 
   clear() {
@@ -201,7 +201,7 @@ export class CollectionSphere {
 
   // Environment mode in sphere view: fog, background, spin rate, artist tile tint.
   applyEnvironmentLook(look, active) {
-    const baseFog = 0.004;
+    const baseFog = 0.0025;
     if (this.scene.fog) {
       this.scene.fog.density = baseFog + (active ? look.intensity * 0.014 : 0);
     }
