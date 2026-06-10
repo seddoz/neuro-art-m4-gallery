@@ -66,13 +66,9 @@ export class CollectionSphere {
     for (const p of this.paintings) p.dispose();
     this.paintings = [];
     for (const m of this.artistMeshes) {
-      m.traverse((c) => {
-        if (c.geometry) c.geometry.dispose();
-        if (c.material) {
-          if (c.material.map) c.material.map.dispose();
-          c.material.dispose();
-        }
-      });
+      m.geometry?.dispose();
+      if (Array.isArray(m.material)) m.material.forEach((mat) => mat.dispose());
+      else m.material?.dispose();
     }
     this.artistMeshes = [];
     this.spin.clear();
@@ -94,10 +90,7 @@ export class CollectionSphere {
     const authorPool = authors.filter((a) => artistNames.has(a.name));
     const extras = authors.filter((a) => !artistNames.has(a.name));
     shuffle(extras);
-    let artistList = [...authorPool, ...extras].slice(0, maxA);
-    if (!artistList.length && artistNames.size) {
-      artistList = [...artistNames].slice(0, maxA).map((name) => ({ name, photo: '' }));
-    }
+    const artistList = [...authorPool, ...extras].slice(0, maxA);
 
     const total = paintings.length + artistList.length;
     const points = spherePoints(total, this.radius);
@@ -126,72 +119,30 @@ export class CollectionSphere {
 
   _mkArtistTile(author, pos) {
     const s = CONFIG.SPHERE.artistTileM;
-    const group = new THREE.Group();
-    group.position.copy(pos);
-    group.userData = { type: 'artist', name: author.name, photo: author.photo };
-
-    // Accent ring so artist tiles are visible even before photo loads.
-    const ring = new THREE.Mesh(
-      new THREE.PlaneGeometry(s * 1.12, s * 1.12),
-      new THREE.MeshBasicMaterial({ color: 0x7c83ff, side: THREE.DoubleSide })
-    );
-    ring.position.z = -0.002;
-    group.add(ring);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 256;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#2e2c42';
-    ctx.fillRect(0, 0, 256, 256);
-    ctx.fillStyle = '#e8e8f0';
-    ctx.font = '600 20px Segoe UI, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const words = author.name.split(/\s+/);
-    let line = '';
-    let y = 118;
-    for (const w of words) {
-      const test = line ? `${line} ${w}` : w;
-      if (ctx.measureText(test).width > 220 && line) {
-        ctx.fillText(line, 128, y);
-        line = w;
-        y += 24;
-      } else {
-        line = test;
-      }
-    }
-    if (line) ctx.fillText(line, 128, y);
-    ctx.font = '500 11px Segoe UI, sans-serif';
-    ctx.fillStyle = '#9a9ab0';
-    ctx.fillText('ARTIST', 128, y + 28);
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(s, s), mat);
-    mesh.userData = group.userData;
-    group.add(mesh);
+    const geo = new THREE.PlaneGeometry(s, s);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x2a2838,
+      side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(pos);
+    mesh.userData = { type: 'artist', name: author.name, photo: author.photo };
 
     if (author.photo) {
       loader.load(
         proxiedImage(author.photo),
-        (photoTex) => {
-          photoTex.colorSpace = THREE.SRGBColorSpace;
-          ctx.drawImage(photoTex.image, 0, 0, 256, 256);
-          ctx.fillStyle = 'rgba(20,20,30,0.55)';
-          ctx.fillRect(0, 200, 256, 56);
-          ctx.fillStyle = '#fff';
-          ctx.font = '600 18px Segoe UI, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(author.name, 128, 232);
-          tex.needsUpdate = true;
+        (tex) => {
+          tex.colorSpace = THREE.SRGBColorSpace;
+          mat.map = tex;
+          mat.color.set(0xffffff);
+          mat.needsUpdate = true;
         },
         undefined,
-        () => { /* keep name placeholder */ }
+        () => { /* keep placeholder */ }
       );
     }
 
-    return group;
+    return mesh;
   }
 
   setVisible(on) {
@@ -220,13 +171,7 @@ export class CollectionSphere {
   }
 
   getPickables() {
-    const meshes = [...this.getPaintingMeshes()];
-    for (const g of this.artistMeshes) {
-      g.traverse((c) => {
-        if (c.isMesh) meshes.push(c);
-      });
-    }
-    return meshes;
+    return [...this.getPaintingMeshes(), ...this.artistMeshes];
   }
 
   pick(clientX, clientY, camera, raycaster, pointer) {
@@ -235,12 +180,11 @@ export class CollectionSphere {
     raycaster.setFromCamera(pointer, camera);
     const hits = raycaster.intersectObjects(this.getPickables(), false);
     if (!hits.length) return null;
-    let obj = hits[0].object;
+    const obj = hits[0].object;
     if (obj.userData.painting) {
       return { type: 'painting', painting: obj.userData.painting, data: obj.userData.painting.data };
     }
-    while (obj && obj.userData?.type !== 'artist') obj = obj.parent;
-    if (obj?.userData?.type === 'artist') {
+    if (obj.userData.type === 'artist') {
       return { type: 'artist', data: { title: obj.userData.name, artist: obj.userData.name } };
     }
     return null;

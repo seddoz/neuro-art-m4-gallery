@@ -369,13 +369,6 @@ function applyView(view, reframe = false) {
   }
 }
 
-async function switchView(view) {
-  if (view === 'sphere') {
-    stateApp.authors = await fetchAuthors();
-  }
-  applyView(view, true);
-}
-
 // --- catalog + filters ---
 async function loadCatalog() {
   ui.setLoadingText('Fetching stock...');
@@ -427,7 +420,6 @@ function renderPage(reframe) {
   gallery.build(slice, stateApp.layout);
   updateCameraForRoom(gallery.dims);
   gallery.setMirrorEnabled(stateApp.mirrorOn);
-  gallery.setMirrorQuality(stateApp.mirrorQuality);
   ui.setResultCount({
     from: total ? start + 1 : 0,
     to: start + slice.length,
@@ -448,7 +440,7 @@ function renderPage(reframe) {
 
 // --- UI handlers ---
 const ui = new UI({
-  onView: (view) => switchView(view),
+  onView: (view) => applyView(view, true),
   onMode: (mode) => {
     stateApp.mode = mode;
     applyLook(sd.look());
@@ -470,7 +462,6 @@ const ui = new UI({
     if (p) {
       if (stateApp.view === 'sphere') {
         stateApp.filtered = [p];
-        stateApp.authors = await fetchAuthors();
         rebuildSphere(true);
       } else {
         rebuild([p], true);

@@ -37,7 +37,7 @@ export const CONFIG = {
     multisample: 0,
     clipBias: 0.003,
     color: 0x808080,
-    defaultQuality: 'live',
+    defaultQuality: 'balanced',
     quality: {
       live: { perFrame: 6, texMin: 512, texMax: 1024, ceiling: true },
       balanced: { perFrame: 2, texMin: 512, texMax: 1024, ceiling: true },
@@ -53,7 +53,7 @@ export const CONFIG = {
     maxPaintings: 100,
     maxArtists: 40,
     tileBaseM: 0.45,
-    artistTileM: 0.42,
+    artistTileM: 0.38,
     autoRotateSpeed: 0.22,
     resumeRotateMs: 3000
   },
