@@ -3,9 +3,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Gallery } from './gallery.js';
 import { MIRROR_LAYER } from './mirrors.js';
+import { CollectionSphere } from './sphere.js';
 import { SDController } from './sd.js';
 import { UI } from './ui.js';
-import { fetchAllPaintings, fetchPainting, buildFacets, applyFilters } from './api.js';
+import { fetchAllPaintings, fetchPainting, fetchAuthors, buildFacets, applyFilters } from './api.js';
 import { CONFIG, layoutPageSize } from './config.js';
 
 const canvas = document.getElementById('scene');
@@ -29,6 +30,13 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.target.set(0, 1.6, 0);
 controls.maxPolarAngle = Math.PI * 0.85;
+
+controls.addEventListener('start', () => {
+  if (stateApp.view === 'sphere') sphere.pauseAutoRotate();
+});
+controls.addEventListener('end', () => {
+  if (stateApp.view === 'sphere') sphere.resumeAutoRotateAfter();
+});
 
 // WASD / arrows / Q-E fly (moves camera + orbit target together).
 const MOVE_KEYS = new Set([
@@ -58,6 +66,7 @@ addEventListener('keyup', (e) => {
 addEventListener('blur', () => keysDown.clear(), true);
 
 function applyKeyboardMove(dt) {
+  if (stateApp.view === 'sphere') return;
   if (keysDown.size === 0 || stateApp.cameraTween) return;
 
   const forward = keysDown.has('KeyW') || keysDown.has('ArrowUp');
@@ -117,13 +126,16 @@ function clampCameraToRoom() {
 }
 
 const gallery = new Gallery(scene);
+const sphere = new CollectionSphere(scene);
 const sd = new SDController();
 
 const stateApp = {
+  view: 'room',
   mode: 'environment',
   all: [],
   filtered: [],
   visible: [],
+  authors: [],
   page: 0,
   selected: null,
   animating: false,
@@ -138,12 +150,17 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let down = null;
 
-function pickPainting(clientX, clientY) {
+function pickAt(clientX, clientY) {
+  if (stateApp.view === 'sphere') {
+    return sphere.pick(clientX, clientY, camera, raycaster, pointer);
+  }
   pointer.x = (clientX / innerWidth) * 2 - 1;
   pointer.y = -(clientY / innerHeight) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObjects(gallery.getPaintingMeshes(), false);
-  return hits.length ? hits[0].object.userData.painting : null;
+  return hits.length
+    ? { type: 'painting', painting: hits[0].object.userData.painting, data: hits[0].object.userData.painting.data }
+    : null;
 }
 
 renderer.domElement.addEventListener('pointerdown', (e) => {
@@ -155,20 +172,33 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   const dt = performance.now() - down.t;
   down = null;
   if (moved > 6 || dt > 400) return; // it was a drag
-  const p = pickPainting(e.clientX, e.clientY);
-  if (p) select(p);
+  const hit = pickAt(e.clientX, e.clientY);
+  if (hit) select(hit);
 });
 renderer.domElement.addEventListener('dblclick', (e) => {
-  const p = pickPainting(e.clientX, e.clientY);
-  if (!p) return;
-  select(p);
-  enterPainting();
+  const hit = pickAt(e.clientX, e.clientY);
+  if (!hit) return;
+  select(hit);
+  if (hit.type === 'painting') enterPainting();
 });
 
-function select(p) {
-  stateApp.selected = p;
-  ui.setSelected(p ? p.data : null);
-  ui.setAnimationLabel(p ? p.animated : false);
+function select(hit) {
+  if (!hit) {
+    stateApp.selected = null;
+    ui.setSelected(null);
+    ui.setAnimationLabel(false);
+    applyLook(sd.look());
+    return;
+  }
+  if (hit.type === 'painting') {
+    stateApp.selected = hit.painting;
+    ui.setSelected(hit.data);
+    ui.setAnimationLabel(hit.painting.animated);
+  } else {
+    stateApp.selected = null;
+    ui.setSelected({ title: hit.data.title, artist: hit.data.artist, id: '', widthCm: 0, heightCm: 0 });
+    ui.setAnimationLabel(false);
+  }
   applyLook(sd.look());
 }
 
@@ -182,6 +212,26 @@ function updateCameraForRoom(dims) {
   camera.updateProjectionMatrix();
   controls.minDistance = 0.5;
   controls.maxDistance = Math.max(L * 0.9, 10);
+}
+
+function updateCameraForSphere() {
+  const r = sphere.radius || CONFIG.SPHERE.defaultRadius;
+  const cy = CONFIG.SPHERE.centerY;
+  camera.near = 0.1;
+  camera.far = Math.max(200, r * 8);
+  camera.updateProjectionMatrix();
+  controls.minDistance = r * 0.55;
+  controls.maxDistance = r * 2.8;
+  controls.target.set(0, cy, 0);
+}
+
+function sphereView() {
+  const r = sphere.radius || CONFIG.SPHERE.defaultRadius;
+  const cy = CONFIG.SPHERE.centerY;
+  return {
+    pos: new THREE.Vector3(0, cy + r * 0.15, r * 1.35),
+    target: new THREE.Vector3(0, cy, 0)
+  };
 }
 
 // Default view: camera near the front wall but orbit target at room centre so
@@ -217,6 +267,11 @@ function enterPainting() {
 }
 
 function exitToGallery() {
+  if (stateApp.view === 'sphere') {
+    const v = sphereView();
+    tweenCamera(v.pos, v.target);
+    return;
+  }
   const v = galleryView();
   tweenCamera(v.pos, v.target);
 }
@@ -241,6 +296,50 @@ function applyLook(look) {
     const active = painting && p === stateApp.selected;
     p.applyLook(look, active);
   }
+  sphere.applyLook(look, painting, stateApp.selected);
+}
+
+function rebuildSphere(reframe = false) {
+  sphere.build(stateApp.filtered, stateApp.authors, gallery.dims);
+  updateCameraForSphere();
+  if (stateApp.view === 'sphere') {
+    ui.setResultCount({
+      from: stateApp.filtered.length ? 1 : 0,
+      to: stateApp.filtered.length,
+      total: stateApp.filtered.length,
+      page: 1,
+      pages: 1
+    });
+    select(null);
+    applyLook(sd.look());
+    if (reframe) {
+      const v = sphereView();
+      camera.position.copy(v.pos);
+      controls.target.copy(v.target);
+      stateApp.cameraTween = null;
+    }
+  }
+}
+
+function applyView(view, reframe = false) {
+  stateApp.view = view;
+  ui.setViewMode(view);
+  const inSphere = view === 'sphere';
+  gallery.setArtVisible(!inSphere);
+  sphere.setVisible(inSphere);
+  if (inSphere) {
+    if (!gallery.dims) renderPage(false);
+    rebuildSphere(reframe);
+  } else {
+    renderPage(reframe);
+    updateCameraForRoom(gallery.dims);
+    if (reframe) {
+      const v = galleryView();
+      camera.position.copy(v.pos);
+      controls.target.copy(v.target);
+      stateApp.cameraTween = null;
+    }
+  }
 }
 
 // --- catalog + filters ---
@@ -264,7 +363,9 @@ async function loadCatalog() {
     );
   }
   ui.populateFilters(buildFacets(stateApp.all));
+  stateApp.authors = await fetchAuthors();
   rebuild(stateApp.all, true);
+  rebuildSphere(false);
   ui.hideLoading();
 }
 
@@ -272,6 +373,11 @@ async function loadCatalog() {
 function rebuild(list, reframe = false) {
   stateApp.filtered = list;
   stateApp.page = 0;
+  if (stateApp.view === 'sphere') {
+    rebuildSphere(reframe);
+    if (!gallery.dims) renderPage(false);
+    return;
+  }
   renderPage(reframe);
 }
 
@@ -287,6 +393,7 @@ function renderPage(reframe) {
   gallery.build(slice, stateApp.layout);
   updateCameraForRoom(gallery.dims);
   gallery.setMirrorEnabled(stateApp.mirrorOn);
+  rebuildSphere(false);
   ui.setResultCount({
     from: total ? start + 1 : 0,
     to: start + slice.length,
@@ -307,6 +414,7 @@ function renderPage(reframe) {
 
 // --- UI handlers ---
 const ui = new UI({
+  onView: (view) => applyView(view, true),
   onMode: (mode) => {
     stateApp.mode = mode;
     applyLook(sd.look());
@@ -326,7 +434,12 @@ const ui = new UI({
       }
     }
     if (p) {
-      rebuild([p], true);
+      if (stateApp.view === 'sphere') {
+        stateApp.filtered = [p];
+        rebuildSphere(true);
+      } else {
+        rebuild([p], true);
+      }
     } else {
       ui.setResultCount({ from: 0, to: 0, total: 0, page: 1, pages: 1 });
     }
@@ -398,6 +511,7 @@ function animate() {
   }
 
   gallery.update(dt);
+  if (stateApp.view === 'sphere') sphere.update(dt, camera);
   controls.update();
   renderer.render(scene, camera);
 }

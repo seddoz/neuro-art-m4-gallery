@@ -92,8 +92,9 @@ function proxiedImage(photo) {
 }
 
 export class Painting {
-  constructor(data) {
+  constructor(data, { framed = true } = {}) {
     this.data = data;
+    this.framed = framed;
     const w = Math.max(0.05, data.widthCm * CONFIG.CM_TO_UNIT);
     const h = Math.max(0.05, data.heightCm * CONFIG.CM_TO_UNIT);
 
@@ -123,30 +124,33 @@ export class Painting {
     this.mesh.position.z = 0.01;
     this.mesh.renderOrder = 2;
 
-    // Frame: a black backing box kept slightly SMALLER than the canvas so the
-    // canvas always overhangs and fully occludes the frame's front face from
-    // every angle. The front face is also recessed well behind the canvas and
-    // the material uses polygon offset, so the two parallel planes can never
-    // z-fight (the cause of the black edge flicker seen while the camera moved).
-    const frameDepth = Math.max(0.02, data.depthCm * CONFIG.CM_TO_UNIT * 0.5);
-    const frameInset = 0.985; // canvas overhangs the frame by ~1.5%
-    const frameGeo = new THREE.BoxGeometry(w * frameInset, h * frameInset, frameDepth);
-    const frameMat = new THREE.MeshStandardMaterial({
-      color: 0x000000,
-      roughness: 0.8,
-      metalness: 0.1,
-      polygonOffset: true,
-      polygonOffsetFactor: 1,
-      polygonOffsetUnits: 1
-    });
-    this.frame = new THREE.Mesh(frameGeo, frameMat);
-    this.frame.renderOrder = 1;
-    // Recess the frame so its front face sits clearly behind the canvas plane.
-    this.frame.position.z = -frameDepth / 2 - 0.004;
-
     this.group = new THREE.Group();
-    this.group.add(this.frame);
     this.group.add(this.mesh);
+
+    if (framed) {
+      // Frame: a black backing box kept slightly SMALLER than the canvas so the
+      // canvas always overhangs and fully occludes the frame's front face from
+      // every angle. The front face is also recessed well behind the canvas and
+      // the material uses polygon offset, so the two parallel planes can never
+      // z-fight (the cause of the black edge flicker seen while the camera moved).
+      const frameDepth = Math.max(0.02, data.depthCm * CONFIG.CM_TO_UNIT * 0.5);
+      const frameInset = 0.985;
+      const frameGeo = new THREE.BoxGeometry(w * frameInset, h * frameInset, frameDepth);
+      const frameMat = new THREE.MeshStandardMaterial({
+        color: 0x000000,
+        roughness: 0.8,
+        metalness: 0.1,
+        polygonOffset: true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1
+      });
+      this.frame = new THREE.Mesh(frameGeo, frameMat);
+      this.frame.renderOrder = 1;
+      this.frame.position.z = -frameDepth / 2 - 0.004;
+      this.group.add(this.frame);
+    } else {
+      this.frame = null;
+    }
 
     this.sizeM = { w, h };
     this.animated = false;
@@ -214,8 +218,10 @@ export class Painting {
     this.disposed = true;
     this.mesh.geometry.dispose();
     this.material.dispose();
-    this.frame.geometry.dispose();
-    this.frame.material.dispose();
+    if (this.frame) {
+      this.frame.geometry.dispose();
+      this.frame.material.dispose();
+    }
     const t = this.material.uniforms.uMap.value;
     if (t && t.dispose) t.dispose();
   }

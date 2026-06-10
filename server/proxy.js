@@ -126,6 +126,11 @@ const server = http.createServer(async (req, res) => {
     return proxyApi(`${API_BASE}/get-product/?id=${single[1]}`, res);
   }
 
+  // 2b. authors list (public)
+  if (p === '/api/authors') {
+    return proxyApi(`${API_BASE}/get-authors-list/`, res);
+  }
+
   // 3. Stream Diffusion bridge
   if (p === '/sd' && req.method === 'POST') {
     const raw = await readBody(req);

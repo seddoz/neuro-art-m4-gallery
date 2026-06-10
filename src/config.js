@@ -44,6 +44,19 @@ export const CONFIG = {
       performance: { perFrame: 1, texMin: 256, texMax: 512, ceiling: false }
     }
   },
+  // Centre collection sphere (gallery-offers-3d style).
+  SPHERE: {
+    centerY: 1.6,
+    defaultRadius: 5,
+    maxRoomLen: 12,
+    radiusFactor: 0.35,
+    maxPaintings: 100,
+    maxArtists: 40,
+    tileBaseM: 0.45,
+    artistTileM: 0.38,
+    autoRotateSpeed: 0.22,
+    resumeRotateMs: 3000
+  },
   SD_ADDR: {
     tlist: '/t_list',
     guidance: '/guidance_scale',

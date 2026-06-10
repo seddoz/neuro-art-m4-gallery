@@ -159,6 +159,10 @@ export class Gallery {
     this.mirrors.setQuality(mode);
   }
 
+  setArtVisible(on) {
+    this.artRoot.visible = !!on;
+  }
+
   // Environment manipulation: base colors stay fixed (white walls, black floor).
   // Environment mode only adds a subtle emissive glow + fog so the defaults are
   // preserved, clearly distinct from Painting mode and WITHOUT waving the walls.

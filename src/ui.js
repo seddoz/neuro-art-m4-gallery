@@ -9,6 +9,15 @@ export class UI {
   }
 
   _bind() {
+    // View toggle: Room vs Sphere
+    this.viewButtons = Array.from(document.querySelectorAll('#view-toggle button'));
+    for (const b of this.viewButtons) {
+      b.addEventListener('click', () => {
+        this.viewButtons.forEach((x) => x.classList.toggle('active', x === b));
+        this.h.onView(b.dataset.view);
+      });
+    }
+
     // Mode toggle: Environment vs Painting
     this.modeButtons = Array.from(document.querySelectorAll('#mode-toggle button'));
     for (const b of this.modeButtons) {
@@ -197,6 +206,15 @@ export class UI {
     if (!this.mirrorBtn) return;
     this.mirrorBtn.textContent = on ? 'Mirror room: On' : 'Mirror room: Off';
     this.mirrorBtn.classList.toggle('active', on);
+  }
+
+  setViewMode(view) {
+    this.viewButtons?.forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+    const layout = document.getElementById('layout-group');
+    const pageNav = document.getElementById('page-nav');
+    const inSphere = view === 'sphere';
+    if (layout) layout.style.display = inSphere ? 'none' : '';
+    if (pageNav) pageNav.style.display = inSphere ? 'none' : '';
   }
 
   setSdStatus(online) {

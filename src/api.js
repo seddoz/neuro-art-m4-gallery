@@ -82,6 +82,36 @@ export async function fetchPainting(id) {
   return normalize(raw);
 }
 
+function normalizeAuthor(raw) {
+  return {
+    name: clean(raw.Name || raw.name || raw.Artist),
+    photo: raw.Photo || raw.photo || '',
+    widthCm: num(raw.Width, 40),
+    heightCm: num(raw.Height, 40)
+  };
+}
+
+// Authors list for sphere tiles. API may return trailing-comma JSON.
+export async function fetchAuthors() {
+  try {
+    const res = await fetch('/api/authors', { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`${res.status}`);
+    const text = await res.text();
+    const clean = text.trim().replace(/,\s*$/, '');
+    let data;
+    try {
+      data = JSON.parse(clean);
+    } catch {
+      data = JSON.parse(`[${clean}]`);
+    }
+    if (!Array.isArray(data)) data = [];
+    return data.map(normalizeAuthor).filter((a) => a.name);
+  } catch (err) {
+    console.warn('[api] authors list unavailable:', err.message);
+    return [];
+  }
+}
+
 // Build the option lists for each filter from a painting set.
 export function buildFacets(paintings) {
   const facet = (key) => {
