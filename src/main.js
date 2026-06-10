@@ -322,13 +322,27 @@ function tweenCamera(toPos, toTarget) {
 // --- SD look routing by mode ---
 function applyLook(look) {
   ui.setSdStatus(sd.bridgeOnline);
-  const painting = stateApp.mode === 'painting';
-  gallery.applyEnvironmentLook(look, !painting);
-  for (const p of gallery.paintings) {
-    const active = painting && p === stateApp.selected;
-    p.applyLook(look, active);
+  const paintingMode = stateApp.mode === 'painting';
+  const envActive = !paintingMode;
+
+  if (stateApp.view === 'sphere') {
+    sphere.applyEnvironmentLook(look, envActive);
+    sphere.applyLook(look, paintingMode, stateApp.selected);
+    if (stateApp.mirrorOn) gallery.applyEnvironmentLook(look, envActive);
+  } else {
+    gallery.applyEnvironmentLook(look, envActive);
+    for (const p of gallery.paintings) {
+      p.applyLook(look, paintingMode && p === stateApp.selected);
+    }
   }
-  sphere.applyLook(look, painting, stateApp.selected);
+}
+
+function ensureGalleryRoom() {
+  if (!gallery.dims) renderPage(false);
+  else {
+    gallery.setMirrorEnabled(stateApp.mirrorOn);
+    gallery.setMirrorQuality(stateApp.mirrorQuality);
+  }
 }
 
 function rebuildSphere(reframe = false) {
@@ -360,7 +374,7 @@ function applyView(view, reframe = false) {
   gallery.setArtVisible(!inSphere);
   sphere.setVisible(inSphere);
   if (inSphere) {
-    if (!gallery.dims) renderPage(false);
+    ensureGalleryRoom();
     rebuildSphere(reframe);
   } else {
     renderPage(reframe);
@@ -507,6 +521,7 @@ const ui = new UI({
   },
   onMirrorToggle: (on) => {
     stateApp.mirrorOn = on;
+    if (stateApp.view === 'sphere') ensureGalleryRoom();
     gallery.setMirrorEnabled(on);
   },
   onMirrorQuality: (mode) => {

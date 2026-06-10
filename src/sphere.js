@@ -60,6 +60,8 @@ export class CollectionSphere {
     this.radius = CONFIG.SPHERE.defaultRadius;
     this.autoRotate = true;
     this._dragTimer = null;
+    this._rotateMul = 1;
+    this._envBg = new THREE.Color(0x14141c);
   }
 
   clear() {
@@ -197,9 +199,28 @@ export class CollectionSphere {
     }
   }
 
+  // Environment mode in sphere view: fog, background, spin rate, artist tile tint.
+  applyEnvironmentLook(look, active) {
+    const baseFog = 0.004;
+    if (this.scene.fog) {
+      this.scene.fog.density = baseFog + (active ? look.intensity * 0.014 : 0);
+    }
+    if (active) {
+      this.scene.background.setHSL(look.hueShift, 0.18 + look.contrast * 0.12, 0.07 + look.blend * 0.04);
+    } else {
+      this.scene.background.copy(this._envBg);
+    }
+    this._rotateMul = active ? 0.4 + look.blend * 1.6 : 1;
+    for (const m of this.artistMeshes) {
+      const mat = m.material;
+      if (!mat || mat.map) continue;
+      mat.color.setHSL(look.hueShift, active ? 0.25 : 0, active ? 0.32 + look.intensity * 0.12 : 0.18);
+    }
+  }
+
   update(dt, camera) {
     if (this.autoRotate) {
-      this.spin.rotation.y += CONFIG.SPHERE.autoRotateSpeed * dt;
+      this.spin.rotation.y += CONFIG.SPHERE.autoRotateSpeed * this._rotateMul * dt;
     }
     const camPos = camera.position;
     for (const p of this.paintings) {
