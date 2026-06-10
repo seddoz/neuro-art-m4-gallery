@@ -340,9 +340,17 @@ function sphereRoomDims(base) {
   };
 }
 
+function syncMirrorFrameGlow(look) {
+  const on = stateApp.mirrorOn;
+  const hue = look?.hueShift ?? CONFIG.MIRROR.neonHue;
+  for (const p of gallery.paintings) p.setMirrorGlow(on, hue);
+  for (const p of sphere.paintings) p.setMirrorGlow(on, hue);
+}
+
 function applyLook(look) {
   ui.setSdStatus(sd.bridgeOnline);
   syncSpaceBackdrop();
+  syncMirrorFrameGlow(look);
 
   const paintingMode = stateApp.mode === 'painting';
   const envActive = !paintingMode;

@@ -140,6 +140,9 @@ export class Painting {
         color: 0x000000,
         roughness: 0.8,
         metalness: 0.1,
+        emissive: 0x000000,
+        emissiveIntensity: 1,
+        toneMapped: false,
         polygonOffset: true,
         polygonOffsetFactor: 1,
         polygonOffsetUnits: 1
@@ -150,12 +153,64 @@ export class Painting {
       this.group.add(this.frame);
     } else {
       this.frame = null;
+      this._addGlowShell(w, h);
     }
+
+    this._mirrorGlow = false;
+    this._glowHue = CONFIG.MIRROR.neonHue;
 
     this.sizeM = { w, h };
     this.animated = false;
     this.loaded = false;
     // Texture is loaded via the throttled queue (enqueueTexture), not here.
+  }
+
+  _addGlowShell(w, h) {
+    const d = Math.max(0.02, 0.02);
+    const geo = new THREE.BoxGeometry(w * 0.988, h * 0.988, d);
+    this.glowShell = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+      color: 0x000000,
+      emissive: 0x000000,
+      emissiveIntensity: 1,
+      roughness: 0.45,
+      metalness: 0.25,
+      toneMapped: false
+    }));
+    this.glowShell.visible = false;
+    this.glowShell.renderOrder = 1;
+    this.glowShell.position.z = -d / 2 - 0.004;
+    this.group.add(this.glowShell);
+  }
+
+  _glowMeshes() {
+    return [this.frame, this.glowShell].filter(Boolean);
+  }
+
+  setMirrorGlow(on, hue = CONFIG.MIRROR.neonHue) {
+    this._mirrorGlow = !!on;
+    this._glowHue = hue;
+    const neon = new THREE.Color().setHSL(hue, 1, 0.52);
+    const base = CONFIG.MIRROR.neonEmissive;
+
+    if (this.frame) {
+      if (on) {
+        this.frame.material.emissive.copy(neon);
+        this.frame.material.emissiveIntensity = base;
+      } else {
+        this.frame.material.emissive.setHex(0x000000);
+        this.frame.material.emissiveIntensity = 1;
+      }
+    }
+    if (this.glowShell) {
+      this.glowShell.visible = on;
+      if (on) {
+        this.glowShell.material.emissive.copy(neon);
+        this.glowShell.material.emissiveIntensity = base;
+      } else {
+        this.glowShell.material.emissive.setHex(0x000000);
+        this.glowShell.material.emissiveIntensity = 1;
+      }
+    }
   }
 
   _placeholder() {
@@ -212,6 +267,13 @@ export class Painting {
 
   update(dt) {
     this.material.uniforms.uTime.value += dt;
+    if (this._mirrorGlow) {
+      const pulse = 0.82 + 0.18 * Math.sin(this.material.uniforms.uTime.value * 2.4);
+      const intensity = CONFIG.MIRROR.neonEmissive * pulse;
+      for (const m of this._glowMeshes()) {
+        m.material.emissiveIntensity = intensity;
+      }
+    }
   }
 
   dispose() {
@@ -221,6 +283,10 @@ export class Painting {
     if (this.frame) {
       this.frame.geometry.dispose();
       this.frame.material.dispose();
+    }
+    if (this.glowShell) {
+      this.glowShell.geometry.dispose();
+      this.glowShell.material.dispose();
     }
     const t = this.material.uniforms.uMap.value;
     if (t && t.dispose) t.dispose();
