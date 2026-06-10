@@ -75,8 +75,7 @@ export class UI {
       this.h.onApplyLayout(this.readLayout());
     });
     document.getElementById('tight-layout')?.addEventListener('click', () => {
-      // Max-density preset per client request: 100 per wall, 6 rows, min gaps.
-      this.setLayout({ perWall: 100, rows: 6, colPitch: 0.1, rowStep: 0.1 });
+      this.setLayout({ perWall: 150, rows: 12, colPitch: 0.02, rowStep: 0.02 });
       this.h.onApplyLayout(this.readLayout());
     });
     document.getElementById('reset-layout')?.addEventListener('click', () => {
@@ -133,7 +132,7 @@ export class UI {
     const L = this.readLayout();
     if (this.layoutOutputs.perWall) this.layoutOutputs.perWall.textContent = L.perWall;
     if (this.layoutOutputs.rows) this.layoutOutputs.rows.textContent = L.rows;
-    if (this.layoutOutputs.colPitch) this.layoutOutputs.colPitch.textContent = L.colPitch.toFixed(1);
+    if (this.layoutOutputs.colPitch) this.layoutOutputs.colPitch.textContent = L.colPitch.toFixed(2);
     if (this.layoutOutputs.rowStep) this.layoutOutputs.rowStep.textContent = L.rowStep.toFixed(2);
     if (this.layoutCap) {
       const total = L.perWall * 4;
