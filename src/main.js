@@ -2,6 +2,7 @@ import './style.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Gallery } from './gallery.js';
+import { MIRROR_LAYER } from './mirrors.js';
 import { SDController } from './sd.js';
 import { UI } from './ui.js';
 import { fetchAllPaintings, fetchPainting, buildFacets, applyFilters } from './api.js';
@@ -20,6 +21,7 @@ scene.fog = new THREE.FogExp2(0x14141c, 0.004);
 // Tight near/far range keeps depth-buffer precision high so distant paintings
 // stay crisp and do not z-fight with their frames.
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.25, 160);
+camera.layers.enable(MIRROR_LAYER);
 camera.position.set(0, 1.7, 8);
 
 const controls = new OrbitControls(camera, renderer.domElement);

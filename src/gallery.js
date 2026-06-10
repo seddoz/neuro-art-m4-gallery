@@ -83,8 +83,6 @@ export class Gallery {
     this.layout = { ...layout, perWall, rows, hGap, vGap };
 
     this._buildEnvironment(wallLen, wallHeight);
-    this.mirrors.rebuild(wallLen, wallHeight);
-    this.setMirrorEnabled(this.mirrorOn);
 
     const half = wallLen / 2;
     const walls = [
@@ -107,6 +105,10 @@ export class Gallery {
         enqueueTexture(p);
       }
     }
+
+    this.mirrors.rebuild(wallLen, wallHeight, this.paintings.length);
+    this.setMirrorEnabled(this.mirrorOn);
+
     return this.paintings;
   }
 
@@ -175,6 +177,7 @@ export class Gallery {
   }
 
   update(dt) {
+    this.mirrors.tick();
     for (const p of this.paintings) p.update(dt);
   }
 }

@@ -29,10 +29,11 @@ export const CONFIG = {
   LAYOUT_MAX_ROWS: 20,
   LAYOUT_MAX_TOTAL: 800,
   LAYOUT_MIN_GAP: 0.02,
-  // Planar mirror room (webgl_mirror-style Reflector planes).
+  // Planar mirror room — quality scales with visible painting count.
   MIRROR: {
-    textureWidth: 512,
-    textureHeight: 512,
+    textureWidthMax: 512,
+    textureWidthMin: 128,
+    multisample: 0,
     clipBias: 0.003,
     color: 0x777777
   },
