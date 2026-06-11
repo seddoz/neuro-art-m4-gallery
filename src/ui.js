@@ -27,10 +27,22 @@ export class UI {
       });
     }
 
-    // Panel show/hide (mobile)
-    document.getElementById('panel-btn').addEventListener('click', () => {
-      document.getElementById('panel').classList.toggle('open');
+    // Panel show/hide (all devices)
+    this.panel = document.getElementById('panel');
+    this.panelBtn = document.getElementById('panel-btn');
+    this.panelBtn.addEventListener('click', () => {
+      const hidden = this.panel.classList.toggle('hidden');
+      if (window.matchMedia('(max-width: 720px)').matches) {
+        this.panel.classList.toggle('open', !hidden);
+      } else {
+        this.panel.classList.remove('open');
+      }
+      this._syncPanelLabel();
     });
+    if (window.matchMedia('(max-width: 720px)').matches) {
+      this.panel.classList.add('hidden');
+    }
+    this._syncPanelLabel();
 
     // Filters
     this.selectors = {
@@ -67,7 +79,8 @@ export class UI {
       perWall: document.getElementById('s-per-wall'),
       rows: document.getElementById('s-rows'),
       colPitch: document.getElementById('s-col-pitch'),
-      rowStep: document.getElementById('s-row-step')
+      rowStep: document.getElementById('s-row-step'),
+      rowOrigin: document.getElementById('s-row-origin')
     };
     this.layoutOutputs = {
       perWall: document.getElementById('o-per-wall'),
@@ -84,7 +97,7 @@ export class UI {
       this.h.onApplyLayout(this.readLayout());
     });
     document.getElementById('tight-layout')?.addEventListener('click', () => {
-      this.setLayout({ perWall: 150, rows: 8, colPitch: 0.02, rowStep: 0.02 });
+      this.setLayout({ perWall: 150, rows: 8, colPitch: 0.02, rowStep: 0.02, rowOrigin: 'top' });
       this.h.onApplyLayout(this.readLayout());
     });
     document.getElementById('reset-layout')?.addEventListener('click', () => {
@@ -137,7 +150,8 @@ export class UI {
       perWall: parseInt(this.layoutInputs.perWall?.value || '12', 10),
       rows: parseInt(this.layoutInputs.rows?.value || '2', 10),
       colPitch: parseFloat(this.layoutInputs.colPitch?.value || '2.2'),
-      rowStep: parseFloat(this.layoutInputs.rowStep?.value || '1.5')
+      rowStep: parseFloat(this.layoutInputs.rowStep?.value || '1.5'),
+      rowOrigin: this.layoutInputs.rowOrigin?.value || 'top'
     };
   }
 
@@ -146,7 +160,17 @@ export class UI {
     if (this.layoutInputs.rows) this.layoutInputs.rows.value = layout.rows;
     if (this.layoutInputs.colPitch) this.layoutInputs.colPitch.value = layout.colPitch;
     if (this.layoutInputs.rowStep) this.layoutInputs.rowStep.value = layout.rowStep;
+    if (this.layoutInputs.rowOrigin) {
+      this.layoutInputs.rowOrigin.value = layout.rowOrigin === 'bottom' ? 'bottom' : 'top';
+    }
     this._syncLayoutLabels();
+  }
+
+  _syncPanelLabel() {
+    if (!this.panelBtn || !this.panel) return;
+    const hidden = this.panel.classList.contains('hidden');
+    this.panelBtn.textContent = hidden ? 'Show controls' : 'Hide controls';
+    this.panelBtn.setAttribute('aria-expanded', hidden ? 'false' : 'true');
   }
 
   _syncLayoutLabels() {
@@ -158,7 +182,8 @@ export class UI {
     if (this.layoutCap) {
       const total = Math.min(CONFIG.LAYOUT_MAX_TOTAL, L.perWall * 4);
       const cols = Math.ceil(L.perWall / Math.max(1, L.rows));
-      this.layoutCap.textContent = `Up to ${total} in room (${L.perWall}/wall, ${L.rows} rows → ~${cols} cols)`;
+      const origin = L.rowOrigin === 'bottom' ? 'bottom-up' : 'top-down';
+      this.layoutCap.textContent = `Up to ${total} in room (${L.perWall}/wall, ${L.rows} rows × ~${cols} cols, ${origin})`;
     }
   }
 

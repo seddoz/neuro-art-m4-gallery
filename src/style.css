@@ -49,6 +49,7 @@ body {
   overflow-y: auto; background: var(--panel); border: 1px solid var(--line);
   border-radius: 12px; padding: 14px; z-index: 9; backdrop-filter: blur(8px);
 }
+#panel.hidden { display: none !important; }
 .panel-group { padding: 10px 0; border-bottom: 1px solid var(--line); }
 .panel-group:last-child { border-bottom: 0; }
 .panel-group h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; }
@@ -95,8 +96,11 @@ button.ghost.active { background: var(--accent-2); color: #fff; border-color: va
 
 /* Mobile */
 @media (max-width: 720px) {
-  #panel { right: 0; left: 0; top: auto; bottom: 0; width: 100%; max-height: 55%; border-radius: 12px 12px 0 0; transform: translateY(calc(100% - 0px)); display: none; }
-  #panel.open { display: block; transform: none; }
+  #panel {
+    right: 0; left: 0; top: auto; bottom: 0; width: 100%; max-height: 55%;
+    border-radius: 12px 12px 0 0; transform: translateY(calc(100% - 0px)); display: none;
+  }
+  #panel.open:not(.hidden) { display: block; transform: none; }
   #hud { display: none; }
   .brand { font-size: 14px; }
 }

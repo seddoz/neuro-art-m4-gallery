@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { Painting, enqueueTexture } from './painting.js';
+import { Painting, enqueueTexture, resetTextureQueue } from './painting.js';
 
 const loader = new THREE.TextureLoader();
 
@@ -34,14 +34,6 @@ function spherePoints(n, radius) {
   return pts;
 }
 
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
 // Centre collection sphere: filtered paintings + artist tiles on a rotating
 // cloud. Tiles billboard toward the camera; no black frames on sphere works.
 export class CollectionSphere {
@@ -64,6 +56,7 @@ export class CollectionSphere {
   }
 
   clear() {
+    resetTextureQueue();
     for (const p of this.paintings) p.dispose();
     this.paintings = [];
     for (const m of this.artistMeshes) {
@@ -88,14 +81,14 @@ export class CollectionSphere {
     const paintings = paintingData.slice(0, maxP);
 
     const artistNames = new Set(paintings.map((p) => p.artist).filter(Boolean));
-    const authorPool = authors.filter((a) => artistNames.has(a.name));
-    const extras = authors.filter((a) => !artistNames.has(a.name));
-    shuffle(extras);
-    const artistList = [...authorPool, ...extras].slice(0, maxA);
+    let artistList = authors.filter((a) => artistNames.has(a.name)).slice(0, maxA);
+    if (!artistList.length && artistNames.size) {
+      artistList = [...artistNames].slice(0, maxA).map((name) => ({ name, photo: '' }));
+    }
 
     const total = paintings.length + artistList.length;
     const points = spherePoints(total, this.radius);
-    shuffle(points);
+    // Stable order: paintings first, then artists (no shuffle — keeps filter set readable).
 
     let pi = 0;
     for (const data of paintings) {

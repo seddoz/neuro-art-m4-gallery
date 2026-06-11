@@ -32,7 +32,8 @@ export const CONFIG = {
     perWall: 12,
     rows: 2,
     colPitch: 0.4,
-    rowStep: 0.4
+    rowStep: 0.4,
+    rowOrigin: 'top'
   },
   LAYOUT_MAX_PER_WALL: 200,
   LAYOUT_MAX_ROWS: 20,
@@ -45,7 +46,8 @@ export const CONFIG = {
     pixelsPerMeter: 128,
     multisample: 0,
     clipBias: 0.003,
-    color: 0x000000,
+    // Reflector tints the reflection; white = full scene brightness (black = dark).
+    color: 0xffffff,
     defaultQuality: 'live',
     neonEmissive: 2.8,
     neonHue: 0.61,
@@ -55,7 +57,7 @@ export const CONFIG = {
     quality: {
       live: { perFrame: 6, texMin: 512, texMax: 1024, ceiling: true },
       balanced: { perFrame: 2, texMin: 512, texMax: 1024, ceiling: true },
-      performance: { perFrame: 1, texMin: 256, texMax: 512, ceiling: false }
+      performance: { perFrame: 1, texMin: 256, texMax: 512, ceiling: true }
     }
   },
   // Centre collection sphere (gallery-offers-3d style).

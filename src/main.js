@@ -171,6 +171,15 @@ const stateApp = {
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let down = null;
+let lastTap = null;
+const DBL_TAP_MS = 350;
+const DBL_TAP_DIST = 28;
+
+function tryEnterPainting(hit) {
+  if (!hit || hit.type !== 'painting') return;
+  select(hit);
+  enterPainting();
+}
 
 function pickAt(clientX, clientY) {
   if (stateApp.view === 'sphere') {
@@ -194,14 +203,26 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   const dt = performance.now() - down.t;
   down = null;
   if (moved > 6 || dt > 400) return; // it was a drag
+
   const hit = pickAt(e.clientX, e.clientY);
+
+  // Double-tap enter (touch / pen — desktop uses dblclick).
+  if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+    const now = performance.now();
+    if (lastTap && now - lastTap.t < DBL_TAP_MS
+        && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < DBL_TAP_DIST) {
+      lastTap = null;
+      tryEnterPainting(hit);
+      return;
+    }
+    lastTap = { x: e.clientX, y: e.clientY, t: now };
+  }
+
   if (hit) select(hit);
 });
 renderer.domElement.addEventListener('dblclick', (e) => {
-  const hit = pickAt(e.clientX, e.clientY);
-  if (!hit) return;
-  select(hit);
-  if (hit.type === 'painting') enterPainting();
+  if (e.pointerType === 'touch') return; // handled by double-tap above
+  tryEnterPainting(pickAt(e.clientX, e.clientY));
 });
 
 function select(hit) {
@@ -434,6 +455,13 @@ function applyView(view, reframe = false) {
   }
 }
 
+async function switchView(view, reframe = false) {
+  if (view === 'sphere') {
+    stateApp.authors = await fetchAuthors();
+  }
+  applyView(view, reframe);
+}
+
 // --- catalog + filters ---
 async function loadCatalog() {
   ui.setLoadingText('Fetching stock...');
@@ -506,7 +534,7 @@ function renderPage(reframe) {
 
 // --- UI handlers ---
 const ui = new UI({
-  onView: (view) => applyView(view, true),
+  onView: (view) => switchView(view, true),
   onMode: (mode) => {
     stateApp.mode = mode;
     applyLook(sd.look());
@@ -527,6 +555,7 @@ const ui = new UI({
     }
     if (p) {
       if (stateApp.view === 'sphere') {
+        stateApp.authors = await fetchAuthors();
         stateApp.filtered = [p];
         rebuildSphere(true);
       } else {
@@ -549,7 +578,8 @@ const ui = new UI({
       perWall: Math.min(CONFIG.LAYOUT_MAX_PER_WALL, Math.max(1, layout.perWall)),
       rows: Math.min(CONFIG.LAYOUT_MAX_ROWS, Math.max(1, layout.rows)),
       colPitch: layout.colPitch,
-      rowStep: layout.rowStep
+      rowStep: layout.rowStep,
+      rowOrigin: layout.rowOrigin === 'bottom' ? 'bottom' : 'top'
     };
     // Re-clamp page index when room capacity changes.
     const pageSize = layoutPageSize(stateApp.layout);

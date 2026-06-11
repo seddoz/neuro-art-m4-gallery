@@ -79,8 +79,18 @@ export class Gallery {
       wallHeight = Math.max(wallHeight, pack.topY + 0.8);
     }
 
+    const rowOrigin = layout.rowOrigin === 'bottom' ? 'bottom' : 'top';
+    if (rowOrigin === 'top') {
+      const topMargin = 0.5;
+      for (const pack of packs) {
+        const shift = wallHeight - topMargin - pack.topY;
+        for (const slot of pack.placed) slot.cy += shift;
+        pack.topY = wallHeight - topMargin;
+      }
+    }
+
     this.dims = { wallLen, height: wallHeight };
-    this.layout = { ...layout, perWall, rows, hGap, vGap };
+    this.layout = { ...layout, perWall, rows, hGap, vGap, rowOrigin };
 
     this._buildEnvironment(wallLen, wallHeight);
 

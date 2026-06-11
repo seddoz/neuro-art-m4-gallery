@@ -86,6 +86,7 @@ export class MirrorRoom {
         tex.anisotropy = this._anisotropy;
         tex.needsUpdate = true;
       }
+      tex.colorSpace = THREE.SRGBColorSpace;
 
       // Render layer 0 only so reflectors do not reflect each other (no recursion).
       const vCam = r.camera;
