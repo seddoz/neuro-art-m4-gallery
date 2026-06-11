@@ -206,30 +206,17 @@ export class Painting {
   }
 
   setMirrorGlow(on, hue = CONFIG.MIRROR.neonHue) {
-    this._mirrorGlow = !!on;
-    const neon = new THREE.Color().setHSL(hue, 1, 0.5);
-    const base = CONFIG.MIRROR.neonEmissive;
-
-    // Room: the frame box itself glows (same footprint as the painting).
+    // Mirror room: canvas only — no neon halo or black frame box in reflections.
+    this._mirrorGlow = false;
     if (this.frame) {
-      if (on) {
-        this.frame.material.emissive.copy(neon);
-        this.frame.material.emissiveIntensity = base;
-      } else {
-        this.frame.material.emissive.setHex(0x000000);
-        this.frame.material.emissiveIntensity = 1;
-      }
+      this.frame.visible = !on;
+      this.frame.material.emissive.setHex(0x000000);
+      this.frame.material.emissiveIntensity = 1;
     }
-    // Sphere: halo plate behind the unframed tile.
     if (this.neonPlate) {
-      this.neonPlate.visible = on;
-      if (on) {
-        this.neonPlate.material.emissive.copy(neon);
-        this.neonPlate.material.emissiveIntensity = base;
-      } else {
-        this.neonPlate.material.emissive.setHex(0x000000);
-        this.neonPlate.material.emissiveIntensity = 1;
-      }
+      this.neonPlate.visible = false;
+      this.neonPlate.material.emissive.setHex(0x000000);
+      this.neonPlate.material.emissiveIntensity = 1;
     }
   }
 

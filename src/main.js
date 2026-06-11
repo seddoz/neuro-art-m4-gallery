@@ -361,17 +361,16 @@ function sphereRoomDims(base) {
   };
 }
 
-function syncMirrorFrameGlow(look) {
+function syncMirrorFrameGlow() {
   const on = stateApp.mirrorOn;
-  const hue = CONFIG.MIRROR.neonHue;
-  for (const p of gallery.paintings) p.setMirrorGlow(on, hue);
-  for (const p of sphere.paintings) p.setMirrorGlow(on, hue);
+  for (const p of gallery.paintings) p.setMirrorGlow(on);
+  for (const p of sphere.paintings) p.setMirrorGlow(on);
 }
 
 function applyLook(look) {
   ui.setSdStatus(sd.bridgeOnline);
   syncSpaceBackdrop();
-  syncMirrorFrameGlow(look);
+  syncMirrorFrameGlow();
 
   const paintingMode = stateApp.mode === 'painting';
   const envActive = !paintingMode;
