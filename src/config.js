@@ -49,6 +49,9 @@ export const CONFIG = {
     defaultQuality: 'live',
     neonEmissive: 2.8,
     neonHue: 0.61,
+    // Sphere tiles have no frame; the glow plate is this factor larger than the
+    // tile so a thin halo is visible from the front (exact-size would be hidden).
+    neonRim: 1.05,
     quality: {
       live: { perFrame: 6, texMin: 512, texMax: 1024, ceiling: true },
       balanced: { perFrame: 2, texMin: 512, texMax: 1024, ceiling: true },

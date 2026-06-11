@@ -457,7 +457,9 @@ async function loadCatalog() {
   ui.populateFilters(buildFacets(stateApp.all));
   stateApp.authors = await fetchAuthors();
   rebuild(stateApp.all, true);
-  rebuildSphere(false);
+  // Sphere builds lazily on first Room->Sphere switch: building it here would
+  // expand the room shell to sphere height and queue ~100 extra textures while
+  // the wall gallery is still loading.
   ui.hideLoading();
 }
 

@@ -151,11 +151,15 @@ export class Painting {
       this.frame.renderOrder = 1;
       this.frame.position.z = -frameDepth / 2 - 0.004;
       this.group.add(this.frame);
+      // Halo plate sits behind the frame box; the frame is inset and fully
+      // occluded head-on, so the plate is what makes the neon visible directly.
+      this._addNeonPlate(w, h, -(frameDepth + 0.012));
     } else {
       this.frame = null;
+      // No frame on sphere tiles: the plate alone provides the neon halo.
+      this._addNeonPlate(w, h, -0.008);
     }
 
-    this._addNeonPlate(w, h);
     this._mirrorGlow = false;
 
     this.sizeM = { w, h };
@@ -164,10 +168,13 @@ export class Painting {
     // Texture is loaded via the throttled queue (enqueueTexture), not here.
   }
 
-  // Flat neon backing — exact painting size (mirror mode only). Avoids thick box side glow.
-  _addNeonPlate(w, h) {
+  // Flat neon backing, mirror mode only. Slightly larger than the canvas so a
+  // thin halo is visible from the front; depth offset clears the frame box.
+  _addNeonPlate(w, h, z = -0.008) {
+    const rim = CONFIG.MIRROR.neonRim;
+    this._neonZ = z;
     this.neonPlate = new THREE.Mesh(
-      new THREE.PlaneGeometry(w, h),
+      new THREE.PlaneGeometry(w * rim, h * rim),
       new THREE.MeshStandardMaterial({
         color: 0x000000,
         emissive: 0x000000,
@@ -180,7 +187,7 @@ export class Painting {
     );
     this.neonPlate.visible = false;
     this.neonPlate.renderOrder = 1;
-    this.neonPlate.position.z = -0.008;
+    this.neonPlate.position.z = z;
     this.group.add(this.neonPlate);
   }
 
@@ -188,13 +195,14 @@ export class Painting {
   syncNeonPlateSize(w, h) {
     this.sizeM = { w, h };
     if (!this.neonPlate) return;
+    const rim = CONFIG.MIRROR.neonRim;
     this.neonPlate.geometry.dispose();
-    this.neonPlate.geometry = new THREE.PlaneGeometry(w, h);
-    this.neonPlate.position.z = -0.008;
+    this.neonPlate.geometry = new THREE.PlaneGeometry(w * rim, h * rim);
+    this.neonPlate.position.z = this._neonZ ?? -0.008;
   }
 
   _glowMeshes() {
-    return [this.neonPlate].filter(Boolean);
+    return [this.frame, this.neonPlate].filter(Boolean);
   }
 
   setMirrorGlow(on, hue = CONFIG.MIRROR.neonHue) {
@@ -202,18 +210,26 @@ export class Painting {
     const neon = new THREE.Color().setHSL(hue, 1, 0.5);
     const base = CONFIG.MIRROR.neonEmissive;
 
+    // Room: the frame box itself glows (same footprint as the painting).
     if (this.frame) {
-      this.frame.material.emissive.setHex(0x000000);
-      this.frame.material.emissiveIntensity = 1;
+      if (on) {
+        this.frame.material.emissive.copy(neon);
+        this.frame.material.emissiveIntensity = base;
+      } else {
+        this.frame.material.emissive.setHex(0x000000);
+        this.frame.material.emissiveIntensity = 1;
+      }
     }
-    if (!this.neonPlate) return;
-    this.neonPlate.visible = on;
-    if (on) {
-      this.neonPlate.material.emissive.copy(neon);
-      this.neonPlate.material.emissiveIntensity = base;
-    } else {
-      this.neonPlate.material.emissive.setHex(0x000000);
-      this.neonPlate.material.emissiveIntensity = 1;
+    // Sphere: halo plate behind the unframed tile.
+    if (this.neonPlate) {
+      this.neonPlate.visible = on;
+      if (on) {
+        this.neonPlate.material.emissive.copy(neon);
+        this.neonPlate.material.emissiveIntensity = base;
+      } else {
+        this.neonPlate.material.emissive.setHex(0x000000);
+        this.neonPlate.material.emissiveIntensity = 1;
+      }
     }
   }
 
