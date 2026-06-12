@@ -27,70 +27,92 @@ function orderPaintings(items) {
     .flat();
 }
 
-function rectsOverlap(a, b, gap) {
-  return !(
-    a.r + gap <= b.l ||
-    b.r + gap <= a.l ||
-    a.t + gap <= b.b ||
-    b.t + gap <= a.b
-  );
-}
+// Row pack: fill each row left-to-right, then next row (gallery-style reading order).
+export function packWallRows(items, maxRows, hGap, vGap, options = {}) {
+  const origin = options.origin === 'bottom' ? 'bottom' : 'top';
+  const floorBottom = options.floorBottom ?? 0.8;
 
-// Column stack pack: up to `rows` paintings per column, bottom-aligned with real sizes.
-// Matches the rows/perWall grid semantics (fill column 0 top-to-bottom, then column 1…)
-// but uses each work's width/height so gaps are only the slider minimums.
-export function packWallColumns(items, rows, hGap, vGap, floorBottom = 0.8) {
   if (!items.length) {
     return { placed: [], width: 4, topY: floorBottom + 1 };
   }
 
-  const r = Math.max(1, rows);
+  const rows = Math.max(1, maxRows);
   const ordered = orderPaintings(items);
-  const numCols = Math.ceil(ordered.length / r);
-  const columns = Array.from({ length: numCols }, () => []);
+  const numCols = Math.ceil(ordered.length / rows);
 
+  const grid = Array.from({ length: rows }, () => Array(numCols).fill(null));
   for (let i = 0; i < ordered.length; i++) {
-    columns[Math.floor(i / r)].push(ordered[i]);
+    grid[Math.floor(i / numCols)][i % numCols] = ordered[i];
+  }
+
+  const colWidths = Array(numCols).fill(0);
+  const rowHeights = Array(rows).fill(0);
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < numCols; col++) {
+      const it = grid[row][col];
+      if (!it) continue;
+      colWidths[col] = Math.max(colWidths[col], it.w);
+      rowHeights[row] = Math.max(rowHeights[row], it.h);
+    }
   }
 
   const placed = [];
-  const rects = [];
-  let x = 0;
   let maxTop = floorBottom;
 
-  for (const col of columns) {
-    if (!col.length) continue;
-    const colW = Math.max(...col.map((it) => it.w));
-    let y = floorBottom;
-    for (const item of col) {
-      const l = x;
-      const b = y;
-      const rect = { l, r: l + colW, b, t: b + item.h };
-      rects.push(rect);
-      placed.push({
-        data: item.data,
-        cx: x + colW / 2,
-        cy: y + item.h / 2,
-        w: item.w,
-        h: item.h
-      });
-      y += item.h + vGap;
-    }
-    maxTop = Math.max(maxTop, y - vGap);
-    x += colW + hGap;
-  }
-
-  for (let i = 0; i < rects.length; i++) {
-    for (let j = i + 1; j < rects.length; j++) {
-      if (rectsOverlap(rects[i], rects[j], Math.min(hGap, vGap) * 0.5)) {
-        console.warn('[wallPack] overlap', i, j);
+  if (origin === 'top') {
+    const totalH = rowHeights.reduce((s, h) => s + h, 0) + vGap * Math.max(0, rows - 1);
+    let y = totalH;
+    for (let row = 0; row < rows; row++) {
+      const rh = rowHeights[row];
+      y -= rh;
+      let x = 0;
+      for (let col = 0; col < numCols; col++) {
+        const it = grid[row][col];
+        if (it) {
+          placed.push({
+            data: it.data,
+            cx: x + colWidths[col] / 2,
+            cy: y + rh / 2,
+            w: it.w,
+            h: it.h
+          });
+        }
+        x += colWidths[col] + hGap;
       }
+      y -= vGap;
+    }
+    maxTop = totalH;
+  } else {
+    let y = floorBottom;
+    for (let row = 0; row < rows; row++) {
+      const rh = rowHeights[row];
+      let x = 0;
+      for (let col = 0; col < numCols; col++) {
+        const it = grid[row][col];
+        if (it) {
+          placed.push({
+            data: it.data,
+            cx: x + colWidths[col] / 2,
+            cy: y + rh / 2,
+            w: it.w,
+            h: it.h
+          });
+        }
+        x += colWidths[col] + hGap;
+      }
+      maxTop = Math.max(maxTop, y + rh);
+      y += rh + vGap;
     }
   }
 
-  const width = Math.max(0.5, x - hGap);
+  const width = Math.max(0.5, colWidths.reduce((s, w, i) => s + w + (i ? hGap : 0), 0));
   const shiftX = -width / 2;
   for (const p of placed) p.cx += shiftX;
 
   return { placed, width, topY: maxTop };
+}
+
+// Legacy column pack (kept for reference); gallery uses packWallRows.
+export function packWallColumns(items, rows, hGap, vGap, floorBottom = 0.8) {
+  return packWallRows(items, rows, hGap, vGap, { origin: 'bottom', floorBottom });
 }

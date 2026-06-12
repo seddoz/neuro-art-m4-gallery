@@ -183,7 +183,7 @@ export class UI {
       const total = Math.min(CONFIG.LAYOUT_MAX_TOTAL, L.perWall * 4);
       const cols = Math.ceil(L.perWall / Math.max(1, L.rows));
       const origin = L.rowOrigin === 'bottom' ? 'bottom-up' : 'top-down';
-      this.layoutCap.textContent = `Up to ${total} in room (${L.perWall}/wall, ${L.rows} rows × ~${cols} cols, ${origin})`;
+      this.layoutCap.textContent = `Up to ${total} in room (${L.perWall}/wall, ${L.rows} rows × ~${cols} across, L→R, ${origin})`;
     }
   }
 

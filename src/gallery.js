@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { Painting, enqueueTexture, resetTextureQueue } from './painting.js';
-import { packWallColumns, paintingSizeM } from './wallPack.js';
+import { packWallRows, paintingSizeM } from './wallPack.js';
 import { MirrorRoom } from './mirrors.js';
 
 // Builds the 3D exhibition space and lays paintings along its walls using
@@ -67,9 +67,10 @@ export class Gallery {
     }
     while (wallChunks.length < 4) wallChunks.push([]);
 
+    const rowOrigin = layout.rowOrigin === 'bottom' ? 'bottom' : 'top';
     const packs = wallChunks.map((chunk) => {
       const items = chunk.map((data) => ({ data, ...paintingSizeM(data) }));
-      return packWallColumns(items, rows, hGap, vGap);
+      return packWallRows(items, rows, hGap, vGap, { origin: rowOrigin });
     });
 
     let wallLen = 8;
@@ -79,7 +80,6 @@ export class Gallery {
       wallHeight = Math.max(wallHeight, pack.topY + 0.8);
     }
 
-    const rowOrigin = layout.rowOrigin === 'bottom' ? 'bottom' : 'top';
     if (rowOrigin === 'top') {
       const topMargin = 0.5;
       for (const pack of packs) {

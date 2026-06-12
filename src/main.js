@@ -28,7 +28,9 @@ camera.layers.enable(MIRROR_LAYER);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
-controls.maxPolarAngle = Math.PI * 0.85;
+// Full vertical orbit: look straight down from above and straight up at ceiling.
+controls.minPolarAngle = 0.05;
+controls.maxPolarAngle = Math.PI - 0.05;
 
 controls.addEventListener('start', () => {
   if (stateApp.view === 'sphere') sphere.pauseAutoRotate();
@@ -105,8 +107,8 @@ function clampCameraToSphere() {
   const cy = sphere.centerY;
   const r = sphere.radius || CONFIG.SPHERE.defaultRadius;
   const half = r * 2.5;
-  const minY = 0.5;
-  const maxY = cy + r * 1.5;
+  const minY = 0.2;
+  const maxY = cy + r * 2;
 
   const ox = camera.position.x;
   const oy = camera.position.y;
@@ -128,8 +130,8 @@ function clampCameraToRoom() {
   const dims = gallery.dims;
   if (!dims) return;
   const half = dims.wallLen / 2 - 0.6;
-  const minY = 0.8;
-  const maxY = (dims.height || CONFIG.WALL_HEIGHT_M) - 0.4;
+  const minY = 0.35;
+  const maxY = (dims.height || CONFIG.WALL_HEIGHT_M) - 0.15;
 
   const ox = camera.position.x;
   const oy = camera.position.y;
