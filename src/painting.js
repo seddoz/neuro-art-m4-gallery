@@ -31,6 +31,7 @@ const fragmentShader = /* glsl */ `
   uniform float uBlend;      // 0..1
   uniform float uHue;        // 0..1
   uniform float uMode;       // 1 = painting mode active (SD affects work)
+  uniform float uDirectLift; // mirror mode: match direct view to reflection brightness
   varying vec2 vUv;
 
   vec3 hueShift(vec3 color, float h) {
@@ -51,6 +52,7 @@ const fragmentShader = /* glsl */ `
       float l = dot(col, vec3(0.299, 0.587, 0.114));
       col = mix(vec3(l), col, 1.0 + uIntensity);
     }
+    col *= (1.0 + uDirectLift);
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), tex.a);
   }
 `;
@@ -113,7 +115,8 @@ export class Painting {
         uContrast: { value: 0 },
         uBlend: { value: 0 },
         uHue: { value: 0 },
-        uMode: { value: 0 }
+        uMode: { value: 0 },
+        uDirectLift: { value: 0 }
       },
       side: THREE.DoubleSide
     });
@@ -208,6 +211,7 @@ export class Painting {
   setMirrorGlow(on, hue = CONFIG.MIRROR.neonHue) {
     // Mirror room: canvas only — no neon halo or black frame box in reflections.
     this._mirrorGlow = false;
+    this.material.uniforms.uDirectLift.value = on ? (CONFIG.MIRROR.directLift ?? 0) : 0;
     if (this.frame) {
       this.frame.visible = !on;
       this.frame.material.emissive.setHex(0x000000);

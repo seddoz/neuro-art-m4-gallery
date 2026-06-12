@@ -46,8 +46,10 @@ export const CONFIG = {
     pixelsPerMeter: 128,
     multisample: 0,
     clipBias: 0.003,
-    // Reflector tints the reflection; white = full scene brightness (black = dark).
-    color: 0xffffff,
+    // Reflector tints the reflection texture (1 = full; lower if reflections read brighter than direct view).
+    reflectionGain: 0.86,
+    // Slight direct-view lift in mirror mode so paintings match their reflections.
+    directLift: 0.10,
     defaultQuality: 'live',
     neonEmissive: 2.8,
     neonHue: 0.61,

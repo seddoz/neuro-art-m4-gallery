@@ -63,10 +63,13 @@ export class MirrorRoom {
 
   _mkReflector(geometry, index, wMeters, hMeters) {
     const m = CONFIG.MIRROR;
+    const gain = m.reflectionGain ?? 1;
+    const c = Math.round(Math.min(1, Math.max(0, gain)) * 255);
+    const reflectColor = (c << 16) | (c << 8) | c;
     const { w, h } = this._texFor(wMeters, hMeters);
     const r = new Reflector(geometry, {
       clipBias: m.clipBias,
-      color: m.color,
+      color: reflectColor,
       textureWidth: w,
       textureHeight: h,
       multisample: m.multisample ?? 0
