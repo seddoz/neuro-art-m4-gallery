@@ -19,11 +19,13 @@ function paintingExtentM(wCm, hCm) {
 // Even distribution on a sphere (Fibonacci lattice).
 function spherePoints(n, radius) {
   if (n <= 0) return [];
-  if (n === 1) return [new THREE.Vector3(0, 0, radius)];
   const pts = [];
   const golden = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < n; i++) {
-    const y = 1 - (i / (n - 1)) * 2;
+    // Offset (i + 0.5)/n keeps every point OFF the exact poles. A tile placed on
+    // a pole sits on the Y spin axis and would appear frozen while the sphere
+    // rotates (the "newest painting doesn't move" bug). This makes all tiles orbit.
+    const y = 1 - ((i + 0.5) / n) * 2;
     const r = Math.sqrt(Math.max(0, 1 - y * y));
     const theta = golden * i;
     pts.push(new THREE.Vector3(

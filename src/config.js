@@ -71,7 +71,8 @@ export const CONFIG = {
     maxPaintings: 100,
     maxArtists: 40,
     // Multiplier when auto-growing sphere radius for wall-sized tiles (sqrt(n) layout).
-    sizeClearance: 0.9,
+    // Lower = tiles sit a little closer together / nearer the viewer.
+    sizeClearance: 0.8,
     artistTileM: 0.38,
     autoRotateSpeed: 0.22,
     resumeRotateMs: 3000
