@@ -8,11 +8,12 @@ function proxiedImage(url) {
   return `/img?url=${encodeURIComponent(url)}`;
 }
 
-function tileSize(wCm, hCm) {
-  const aspect = Math.max(0.4, (wCm || 60) / (hCm || 60));
-  const base = CONFIG.SPHERE.tileBaseM;
-  if (aspect >= 1) return { w: base, h: base / aspect };
-  return { w: base * aspect, h: base };
+// Same cm→metre rule as wall paintings (Painting constructor / UE5 importer).
+function paintingExtentM(wCm, hCm) {
+  return Math.max(
+    Math.max(0.05, (wCm || 60) * CONFIG.CM_TO_UNIT),
+    Math.max(0.05, (hCm || 60) * CONFIG.CM_TO_UNIT)
+  );
 }
 
 // Even distribution on a sphere (Fibonacci lattice).
@@ -71,11 +72,6 @@ export class CollectionSphere {
   build(paintingData, authors, roomDims) {
     this.clear();
 
-    const L = roomDims?.wallLen ?? 16;
-    this.radius = Math.min(L, CONFIG.SPHERE.maxRoomLen) * CONFIG.SPHERE.radiusFactor;
-    // Lift sphere so its bottom sits above the floor (y = 0).
-    this.root.position.y = this.radius + CONFIG.SPHERE.floorClearance;
-
     const maxP = CONFIG.SPHERE.maxPaintings;
     const maxA = CONFIG.SPHERE.maxArtists;
     const paintings = paintingData.slice(0, maxP);
@@ -87,6 +83,19 @@ export class CollectionSphere {
     }
 
     const total = paintings.length + artistList.length;
+    let maxExtent = CONFIG.SPHERE.artistTileM;
+    for (const data of paintings) {
+      maxExtent = Math.max(maxExtent, paintingExtentM(data.widthCm, data.heightCm));
+    }
+
+    const L = roomDims?.wallLen ?? 16;
+    const baseRadius = Math.min(L, CONFIG.SPHERE.maxRoomLen) * CONFIG.SPHERE.radiusFactor;
+    // Wall-sized tiles need a larger shell so works do not stack on top of each other.
+    const fitRadius = maxExtent * Math.sqrt(Math.max(total, 1)) * CONFIG.SPHERE.sizeClearance;
+    this.radius = Math.max(CONFIG.SPHERE.defaultRadius, baseRadius, fitRadius);
+    // Lift sphere so its bottom sits above the floor (y = 0).
+    this.root.position.y = this.radius + CONFIG.SPHERE.floorClearance;
+
     const points = spherePoints(total, this.radius);
     // Stable order: paintings first, then artists (no shuffle — keeps filter set readable).
 
@@ -94,9 +103,7 @@ export class CollectionSphere {
     for (const data of paintings) {
       const pos = points[pi++];
       const p = new Painting(data, { framed: false });
-      const { w, h } = tileSize(data.widthCm, data.heightCm);
-      p.mesh.scale.set(w / p.sizeM.w, h / p.sizeM.h, 1);
-      p.syncNeonPlateSize(w, h);
+      // Geometry is already wall cm size; no uniform downscale.
       p.group.position.copy(pos);
       this.spin.add(p.group);
       this.paintings.push(p);

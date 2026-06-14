@@ -47,9 +47,9 @@ export const CONFIG = {
     multisample: 0,
     clipBias: 0.003,
     // Reflector tints the reflection texture (1 = full; lower if reflections read brighter than direct view).
-    reflectionGain: 0.86,
+    reflectionGain: 0.68,
     // Slight direct-view lift in mirror mode so paintings match their reflections.
-    directLift: 0.10,
+    directLift: 0.06,
     defaultQuality: 'live',
     neonEmissive: 2.8,
     neonHue: 0.61,
@@ -70,7 +70,8 @@ export const CONFIG = {
     radiusFactor: 0.35,
     maxPaintings: 100,
     maxArtists: 40,
-    tileBaseM: 0.45,
+    // Multiplier when auto-growing sphere radius for wall-sized tiles (sqrt(n) layout).
+    sizeClearance: 0.9,
     artistTileM: 0.38,
     autoRotateSpeed: 0.22,
     resumeRotateMs: 3000
