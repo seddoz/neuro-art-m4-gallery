@@ -96,24 +96,33 @@ function proxiedImage(photo) {
 }
 
 // Shrink oversized photos before uploading to GPU (critical on mobile Safari).
+// Must never throw: a failure here previously stalled the whole texture queue
+// (one bad big image -> some paintings load, the rest stay blank). On any
+// error we fall back to the original texture, which the GPU can still upload.
 function downscaleTexture(tex, maxDim) {
-  if (!maxDim || maxDim <= 0) return tex;
-  const img = tex.image;
-  if (!img || !img.width || !img.height) return tex;
-  const w = img.width;
-  const h = img.height;
-  if (w <= maxDim && h <= maxDim) return tex;
-  const scale = maxDim / Math.max(w, h);
-  const cw = Math.max(1, Math.round(w * scale));
-  const ch = Math.max(1, Math.round(h * scale));
-  const canvas = document.createElement('canvas');
-  canvas.width = cw;
-  canvas.height = ch;
-  canvas.getContext('2d').drawImage(img, 0, 0, cw, ch);
-  const out = new THREE.CanvasTexture(canvas);
-  out.colorSpace = THREE.SRGBColorSpace;
-  tex.dispose();
-  return out;
+  try {
+    if (!maxDim || maxDim <= 0) return tex;
+    const img = tex.image;
+    if (!img || !img.width || !img.height) return tex;
+    const w = img.width;
+    const h = img.height;
+    if (w <= maxDim && h <= maxDim) return tex;
+    const scale = maxDim / Math.max(w, h);
+    const cw = Math.max(1, Math.round(w * scale));
+    const ch = Math.max(1, Math.round(h * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = cw;
+    canvas.height = ch;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return tex;
+    ctx.drawImage(img, 0, 0, cw, ch);
+    const out = new THREE.CanvasTexture(canvas);
+    out.colorSpace = THREE.SRGBColorSpace;
+    tex.dispose();
+    return out;
+  } catch {
+    return tex; // keep full-size texture rather than losing the painting
+  }
 }
 
 export class Painting {
@@ -265,24 +274,38 @@ export class Painting {
         resolve();
         return;
       }
-      loader.load(
-        proxiedImage(this.data.photo),
-        (tex) => {
+      // Guard the whole success path: any exception must still resolve() so the
+      // throttled queue (enqueueTexture/pump) never stalls and stops loading the
+      // remaining paintings — the cause of "some appear, some don't" on mobile.
+      const finishOk = (tex) => {
+        try {
           if (this.disposed) {
             tex.dispose();
-            resolve();
             return;
           }
-          let ready = downscaleTexture(tex, CONFIG.TEX_MAX_DIM);
+          const ready = downscaleTexture(tex, CONFIG.TEX_MAX_DIM);
           ready.colorSpace = THREE.SRGBColorSpace;
           ready.anisotropy = CONFIG.TEXTURE_ANISOTROPY ?? 8;
           this.material.uniforms.uMap.value = ready;
           this.loaded = true;
+        } catch {
+          /* keep placeholder; never block the queue */
+        } finally {
           resolve();
-        },
-        undefined,
-        () => resolve() // keep placeholder on error
-      );
+        }
+      };
+
+      const onError = () => {
+        // One retry helps flaky mobile networks; then give up gracefully.
+        if (!this._retried && !this.disposed) {
+          this._retried = true;
+          loader.load(proxiedImage(this.data.photo), finishOk, undefined, () => resolve());
+          return;
+        }
+        resolve();
+      };
+
+      loader.load(proxiedImage(this.data.photo), finishOk, undefined, onError);
     });
   }
 
