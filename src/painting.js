@@ -8,6 +8,7 @@ import { CONFIG } from './config.js';
 //    manipulation visibly changes the work even when the SD bridge is offline.
 
 const vertexShader = /* glsl */ `
+  precision mediump float;
   uniform float uDepth;      // displacement amount (metres), small
   uniform float uTime;
   uniform float uAnim;       // 0 = flat, 1 = animated
@@ -25,6 +26,7 @@ const vertexShader = /* glsl */ `
 `;
 
 const fragmentShader = /* glsl */ `
+  precision mediump float;
   uniform sampler2D uMap;
   uniform float uIntensity;  // SD intensity 0..1
   uniform float uContrast;   // 0..1
@@ -91,6 +93,27 @@ export function resetTextureQueue() {
 // texture failures (the image host does not send CORS headers).
 function proxiedImage(photo) {
   return `/img?url=${encodeURIComponent(photo)}`;
+}
+
+// Shrink oversized photos before uploading to GPU (critical on mobile Safari).
+function downscaleTexture(tex, maxDim) {
+  if (!maxDim || maxDim <= 0) return tex;
+  const img = tex.image;
+  if (!img || !img.width || !img.height) return tex;
+  const w = img.width;
+  const h = img.height;
+  if (w <= maxDim && h <= maxDim) return tex;
+  const scale = maxDim / Math.max(w, h);
+  const cw = Math.max(1, Math.round(w * scale));
+  const ch = Math.max(1, Math.round(h * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = cw;
+  canvas.height = ch;
+  canvas.getContext('2d').drawImage(img, 0, 0, cw, ch);
+  const out = new THREE.CanvasTexture(canvas);
+  out.colorSpace = THREE.SRGBColorSpace;
+  tex.dispose();
+  return out;
 }
 
 export class Painting {
@@ -228,7 +251,8 @@ export class Painting {
     const c = document.createElement('canvas');
     c.width = c.height = 8;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#222';
+    // Slightly lighter than void so loading tiles are visible on mobile + mirror mode.
+    ctx.fillStyle = '#3a3a48';
     ctx.fillRect(0, 0, 8, 8);
     return new THREE.CanvasTexture(c);
   }
@@ -249,9 +273,10 @@ export class Painting {
             resolve();
             return;
           }
-          tex.colorSpace = THREE.SRGBColorSpace;
-          tex.anisotropy = 8;
-          this.material.uniforms.uMap.value = tex;
+          let ready = downscaleTexture(tex, CONFIG.TEX_MAX_DIM);
+          ready.colorSpace = THREE.SRGBColorSpace;
+          ready.anisotropy = CONFIG.TEXTURE_ANISOTROPY ?? 8;
+          this.material.uniforms.uMap.value = ready;
           this.loaded = true;
           resolve();
         },

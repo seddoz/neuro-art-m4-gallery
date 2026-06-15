@@ -8,10 +8,12 @@ import { SDController } from './sd.js';
 import { UI } from './ui.js';
 import { fetchAllPaintings, fetchPainting, fetchAuthors, buildFacets, applyFilters } from './api.js';
 import { CONFIG, layoutPageSize } from './config.js';
+import { applyMobileProfile } from './device.js';
 
+const mobile = applyMobileProfile();
 const canvas = document.getElementById('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: mobile.antialias });
+renderer.setPixelRatio(Math.min(devicePixelRatio, mobile.pixelRatioMax));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
@@ -615,6 +617,10 @@ const ui = new UI({
 });
 
 applyGalleryView();
+if (mobile.active) {
+  stateApp.layout = { ...CONFIG.LAYOUT_DEFAULT };
+  ui.setLayout(stateApp.layout);
+}
 if (ui.mirrorQuality) ui.mirrorQuality.value = stateApp.mirrorQuality;
 gallery.setMirrorQuality(stateApp.mirrorQuality);
 
@@ -645,11 +651,38 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight;
+addEventListener('resize', handleViewportResize);
+window.visualViewport?.addEventListener('resize', handleViewportResize);
+window.visualViewport?.addEventListener('scroll', handleViewportResize);
+
+function handleViewportResize() {
+  const vv = window.visualViewport;
+  const w = Math.floor(vv?.width ?? innerWidth);
+  const h = Math.floor(vv?.height ?? innerHeight);
+  if (w < 1 || h < 1) return;
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
+  renderer.setSize(w, h, false);
+}
+
+function restoreSceneAfterContextLoss() {
+  gallery.setMirrorQuality(stateApp.mirrorQuality);
+  if (stateApp.view === 'sphere') rebuildSphere(false);
+  else renderPage(false);
+  gallery.setMirrorEnabled(stateApp.mirrorOn);
+  applyLook(sd.look());
+}
+
+canvas.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault();
+  ui?.setLoadingText('Restoring gallery…');
+  document.getElementById('loading')?.classList.remove('hidden');
+}, false);
+
+canvas.addEventListener('webglcontextrestored', () => {
+  restoreSceneAfterContextLoss();
+  ui?.hideLoading();
+}, false);
 
 ui._syncLayoutLabels();
 loadCatalog();
