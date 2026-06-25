@@ -1,0 +1,8 @@
+{
+  "location": "Room 1",
+  "scan": "/scans/room1.ply",
+  "generator": "scanroom-manual",
+  "anchors": {
+    "Room 1": {}
+  }
+}

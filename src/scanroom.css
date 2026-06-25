@@ -1,0 +1,65 @@
+/* Scan Room specific UI. Base palette/components come from style.css. */
+
+.link-btn {
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 13px;
+  background: var(--panel);
+}
+.link-btn:hover { border-color: var(--accent-2); }
+
+/* Painting list */
+.paint-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+.paint-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px;
+  border: 1px solid var(--line); border-radius: 8px; cursor: pointer; background: #11111a;
+}
+.paint-item:hover { border-color: var(--accent-2); }
+.paint-item.active { border-color: var(--accent); background: #14241d; }
+.paint-item img {
+  width: 38px; height: 38px; object-fit: cover; border-radius: 6px; background: #000; flex: 0 0 auto;
+}
+.paint-item .pi-text { min-width: 0; }
+.paint-item .pi-title { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.paint-item .pi-sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.paint-item .pi-pin { margin-left: auto; font-size: 11px; color: var(--muted); flex: 0 0 auto; }
+.paint-item .pi-pin.set { color: var(--accent); }
+
+/* Info card */
+#info-card {
+  position: absolute; left: 12px; bottom: 56px; width: 320px; max-width: calc(100% - 24px);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  z-index: 9; backdrop-filter: blur(8px); overflow: hidden;
+}
+#info-card.hidden { display: none; }
+.info-media { width: 100%; height: 170px; background: #000; }
+.info-media img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.info-body { padding: 12px 14px; }
+.info-title { font-weight: 700; font-size: 15px; }
+.info-artist { color: var(--accent); font-size: 13px; margin-bottom: 8px; }
+.info-meta { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 12px; }
+.info-meta dt { color: var(--muted); }
+.info-meta dd { color: var(--text); text-align: right; }
+.info-close {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  background: rgba(0,0,0,0.5); color: #fff; border: 0; border-radius: 6px;
+  width: 26px; height: 26px; font-size: 16px; line-height: 1; cursor: pointer; font-weight: 400;
+}
+
+/* Hover tooltip */
+.tooltip {
+  position: absolute; z-index: 12; pointer-events: none;
+  background: rgba(8,8,12,0.92); border: 1px solid var(--line); color: var(--text);
+  padding: 5px 9px; border-radius: 7px; font-size: 12px; max-width: 240px;
+  transform: translate(-50%, calc(-100% - 12px));
+}
+.tooltip.hidden { display: none; }
+
+/* Place-mode crosshair affordance */
+#scene.placing { cursor: crosshair; }
+
+#paint-list::-webkit-scrollbar, #panel::-webkit-scrollbar { width: 8px; }
+#paint-list::-webkit-scrollbar-thumb, #panel::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }

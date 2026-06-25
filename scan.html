@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0a0a0f" />
+    <title>Neuro Art - Scan Room (Room 1)</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+
+      <div id="loading" class="overlay">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading scanned room...</div>
+      </div>
+
+      <header id="topbar">
+        <div class="brand">Neuro Art <span>Scan Room</span></div>
+        <a id="gallery-link" href="/" class="link-btn">&larr; Gallery</a>
+        <button id="panel-btn" class="icon-btn" aria-label="Toggle controls">Controls</button>
+      </header>
+
+      <aside id="panel">
+        <section class="panel-group">
+          <h3>Room</h3>
+          <div class="field"><label for="loc-select">Location (stock)</label><select id="loc-select" title="Stock location to show in this room"></select></div>
+          <div class="hint" id="stock-count">Loading stock…</div>
+          <div class="hint muted" id="stock-source"></div>
+        </section>
+
+        <section class="panel-group">
+          <h3>Paintings in room</h3>
+          <div id="paint-list" class="paint-list"></div>
+        </section>
+
+        <section class="panel-group">
+          <h3>View</h3>
+          <div class="field"><label for="s-point">Point size <output id="o-point">0.012</output></label>
+            <input type="range" id="s-point" title="Point size" min="0.002" max="0.08" step="0.001" value="0.012" /></div>
+          <div class="field row">
+            <button id="flip-up" class="ghost">Flip up axis</button>
+            <button id="reset-view" class="ghost">Reset view</button>
+          </div>
+        </section>
+
+        <section class="panel-group">
+          <h3>Anchors (link stock to scan)</h3>
+          <div class="field row">
+            <button id="place-mode" class="ghost">Place mode: Off</button>
+          </div>
+          <div class="hint muted">Pick a painting, turn Place mode on, then click where it hangs in the scan to anchor it.</div>
+          <div class="field"><label for="import-detections">Import splat_analyzer detections</label>
+            <input type="file" id="import-detections" title="Import splat_analyzer interactions.json" accept=".json,application/json" /></div>
+          <div class="field row">
+            <button id="save-anchors">Save anchors</button>
+            <button id="clear-anchors" class="ghost">Clear</button>
+          </div>
+          <div class="hint muted" id="anchor-count"></div>
+        </section>
+      </aside>
+
+      <div id="info-card" class="hidden">
+        <button id="info-close" class="info-close" aria-label="Close">&times;</button>
+        <div class="info-media"><img id="info-img" alt="" /></div>
+        <div class="info-body">
+          <div id="info-title" class="info-title">—</div>
+          <div id="info-artist" class="info-artist">—</div>
+          <dl id="info-meta" class="info-meta"></dl>
+        </div>
+      </div>
+
+      <div id="tooltip" class="tooltip hidden"></div>
+
+      <div id="hud">
+        <div id="hud-help">Drag to look · scroll to zoom · WASD move · click a pin for stock info · Place mode: click the scan to anchor</div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/scanroom.js"></script>
+  </body>
+</html>

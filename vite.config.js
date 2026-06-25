@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { resolve } from 'node:path';
 
 // During `npm run dev`, Vite serves the client and forwards API + SD bridge
 // calls to the local Node proxy (server/proxy.js) so the API key and OSC
@@ -18,6 +19,15 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
+    sourcemap: true,
+    // Multi-page: the main gallery (index.html) plus the isolated Scan Room
+    // experiment (scan.html). Keeping scan.html as a separate entry means the
+    // production gallery bundle is unaffected.
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        scan: resolve(__dirname, 'scan.html')
+      }
+    }
   }
 });

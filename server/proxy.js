@@ -46,6 +46,7 @@ const MIME = {
   '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml',
   '.glb': 'model/gltf-binary',
+  '.ply': 'application/octet-stream',
   '.map': 'application/json'
 };
 
