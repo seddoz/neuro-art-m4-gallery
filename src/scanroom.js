@@ -520,7 +520,17 @@ function tweenTarget(toTarget) {
 }
 
 // ------------------------------------------------------------------ controls UI
-el('panel-btn').addEventListener('click', () => el('panel').classList.toggle('hidden'));
+// Mobile uses a bottom sheet that only displays with `#panel.open:not(.hidden)`
+// (see style.css). On desktop the panel shows unless `.hidden`. Mirror the main
+// gallery's logic so the Controls button works on phones, not just PC.
+const isMobile = () => window.matchMedia('(max-width: 720px)').matches;
+if (isMobile()) el('panel').classList.add('hidden');
+el('panel-btn').addEventListener('click', () => {
+  const panel = el('panel');
+  const hidden = panel.classList.toggle('hidden');
+  if (isMobile()) panel.classList.toggle('open', !hidden);
+  else panel.classList.remove('open');
+});
 el('info-close').addEventListener('click', hideInfo);
 
 el('s-point').addEventListener('input', (e) => {
