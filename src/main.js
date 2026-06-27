@@ -9,6 +9,7 @@ import { UI } from './ui.js';
 import { fetchAllPaintings, fetchPainting, fetchAuthors, buildFacets, applyFilters } from './api.js';
 import { CONFIG, layoutPageSize } from './config.js';
 import { applyMobileProfile } from './device.js';
+import { LensFlareOverlay } from './lensflare.js';
 
 const mobile = applyMobileProfile();
 const canvas = document.getElementById('scene');
@@ -20,6 +21,11 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const SCENE_BG = CONFIG.SCENE_BG;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(SCENE_BG);
+
+// Screen-space lens flare overlay (drawn after the scene each frame). The flare
+// shines from the selected painting (or the pointer in Follow Mouse mode).
+const lensFlare = new LensFlareOverlay();
+lensFlare.setResolution(renderer.domElement.width, renderer.domElement.height);
 // No fog — keeps the void pure black like the reference gallery view.
 
 // Tight near/far range keeps depth-buffer precision high so distant paintings
@@ -234,6 +240,7 @@ function select(hit) {
     stateApp.selected = null;
     ui.setSelected(null);
     ui.setAnimationLabel(false);
+    ui.setLensFlareLabel(false);
     applyLook(sd.look());
     return;
   }
@@ -244,6 +251,7 @@ function select(hit) {
     hit.painting.upgradeFullRes?.();
     ui.setSelected(hit.data);
     ui.setAnimationLabel(hit.painting.animated);
+    ui.setLensFlareLabel(!!hit.painting.lensFlareOn);
   } else {
     stateApp.selected = null;
     ui.setSelected({ title: hit.data.title, artist: hit.data.artist, id: '', widthCm: 0, heightCm: 0 });
@@ -649,6 +657,12 @@ const ui = new UI({
     p.setAnimated(!p.animated);
     ui.setAnimationLabel(p.animated);
   },
+  onToggleLensFlare: () => {
+    const p = stateApp.selected;
+    if (!p) return;
+    p.lensFlareOn = !p.lensFlareOn;
+    ui.setLensFlareLabel(p.lensFlareOn);
+  },
   onMirrorToggle: (on) => {
     stateApp.mirrorOn = on;
     if (stateApp.view === 'sphere') ensureGalleryRoom();
@@ -677,9 +691,28 @@ sd.onChange((look) => applyLook(look));
 
 // --- render loop ---
 const clock = new THREE.Clock();
+let flareElapsed = 0;
+const _flareSrc = new THREE.Vector3();
+
+// Decide whether to draw the lens flare this frame and from where. Follow Mouse
+// always shows it; otherwise it shines from the selected painting (if its
+// per-painting Lens Flare toggle is on) projected to screen space.
+function updateLensFlare() {
+  if (!lensFlare.params.enabled) return false;
+  if (lensFlare.followMouse) return true;
+  const p = stateApp.selected;
+  if (!p || !p.lensFlareOn) return false;
+  p.mesh.getWorldPosition(_flareSrc);
+  _flareSrc.project(camera);
+  if (_flareSrc.z > 1) return false; // behind the camera
+  lensFlare.setSourceNDC(_flareSrc.x, _flareSrc.y);
+  return true;
+}
+
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
+  flareElapsed += dt;
 
   if (stateApp.cameraTween) {
     const tw = stateApp.cameraTween;
@@ -696,6 +729,8 @@ function animate() {
   if (stateApp.view === 'sphere') sphere.update(dt, camera);
   controls.update();
   renderer.render(scene, camera);
+
+  if (updateLensFlare()) lensFlare.render(renderer, flareElapsed);
 }
 
 addEventListener('resize', handleViewportResize);
@@ -710,6 +745,7 @@ function handleViewportResize() {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
+  lensFlare.setResolution(renderer.domElement.width, renderer.domElement.height);
 }
 
 function restoreSceneAfterContextLoss() {
@@ -751,6 +787,47 @@ addEventListener('pageshow', (e) => {
   if (e.persisted) resumeRender();
 });
 
+// --- Lens Flare control panel wiring (kept here so ui.js stays focused on the
+// gallery's core controls). Sliders update a numeric uniform + its <output>;
+// checkboxes update a boolean uniform / overlay flag live.
+function wireLensFlareControls() {
+  const slider = (id, outId, key, fixed) => {
+    const input = document.getElementById(id);
+    const out = document.getElementById(outId);
+    if (!input) return;
+    const apply = () => {
+      const v = parseFloat(input.value);
+      lensFlare.setParam(key, v);
+      if (out) out.textContent = fixed != null ? v.toFixed(fixed) : String(v);
+    };
+    input.addEventListener('input', apply);
+    apply();
+  };
+  const check = (id, fn) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.addEventListener('change', () => fn(input.checked));
+    fn(input.checked);
+  };
+
+  check('lf-enabled', (on) => lensFlare.setEnabled(on));
+  check('lf-follow', (on) => lensFlare.setFollowMouse(on));
+  slider('lf-starpoints', 'o-lf-starpoints', 'starPoints', 0);
+  slider('lf-glaresize', 'o-lf-glaresize', 'glareSize', 2);
+  slider('lf-flaresize', 'o-lf-flaresize', 'flareSize', 3);
+  slider('lf-flarespeed', 'o-lf-flarespeed', 'flareSpeed', 3);
+  slider('lf-flareshape', 'o-lf-flareshape', 'flareShape', 2);
+  slider('lf-haloscale', 'o-lf-haloscale', 'haloScale', 2);
+  slider('lf-opacity', 'o-lf-opacity', 'opacity', 2);
+  slider('lf-ghostscale', 'o-lf-ghostscale', 'ghostScale', 2);
+  check('lf-animated', (on) => lensFlare.setParam('animated', on));
+  check('lf-anamorphic', (on) => lensFlare.setParam('anamorphic', on));
+  check('lf-secondaryghosts', (on) => lensFlare.setParam('secondaryGhosts', on));
+  check('lf-starburst', (on) => lensFlare.setParam('starBurst', on));
+  check('lf-streaks', (on) => lensFlare.setParam('aditionalStreaks', on));
+}
+
+wireLensFlareControls();
 ui._syncLayoutLabels();
 loadCatalog();
 animate();

@@ -34,8 +34,6 @@ const fragmentShader = /* glsl */ `
   uniform float uHue;        // 0..1
   uniform float uMode;       // 1 = painting mode active (SD affects work)
   uniform float uDirectLift; // mirror mode: match direct view to reflection brightness
-  uniform float uPlaneAspect; // plane width / height (from cm)
-  uniform float uTexAspect;   // texture pixel width / height
   varying vec2 vUv;
 
   vec3 hueShift(vec3 color, float h) {
@@ -45,33 +43,9 @@ const fragmentShader = /* glsl */ `
   }
 
   void main() {
-    // object-fit: contain — show the full artwork inside the cm-sized frame.
-    // Stretching a photo to the stock quad caused visible "cropping" on mobile
-    // walls when cm aspect and photo aspect differ; enter looked correct because
-    // the full-res swap happened on tap. Contain keeps wall and enter identical.
-    float pa = uPlaneAspect;
-    float ta = uTexAspect;
-    vec2 uv = vUv;
-    if (pa > 0.001 && ta > 0.001) {
-      if (ta > pa) {
-        float h = pa / ta;
-        float y0 = (1.0 - h) * 0.5;
-        if (vUv.y < y0 || vUv.y > y0 + h) {
-          gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-          return;
-        }
-        uv.y = (vUv.y - y0) / h;
-      } else if (ta < pa) {
-        float w = ta / pa;
-        float x0 = (1.0 - w) * 0.5;
-        if (vUv.x < x0 || vUv.x > x0 + w) {
-          gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-          return;
-        }
-        uv.x = (vUv.x - x0) / w;
-      }
-    }
-    vec4 tex = texture2D(uMap, uv);
+    // The quad is resized to the photo aspect on load (see _resizeToAspect), so
+    // a straight sample fills it with no stretch, no crop, and no black bars.
+    vec4 tex = texture2D(uMap, vUv);
     vec3 col = tex.rgb;
     if (uMode > 0.5) {
       // contrast around mid grey
@@ -183,9 +157,7 @@ export class Painting {
         uBlend: { value: 0 },
         uHue: { value: 0 },
         uMode: { value: 0 },
-        uDirectLift: { value: 0 },
-        uPlaneAspect: { value: w / h },
-        uTexAspect: { value: 1 }
+        uDirectLift: { value: 0 }
       },
       side: THREE.DoubleSide
     });
@@ -206,6 +178,7 @@ export class Painting {
       // the material uses polygon offset, so the two parallel planes can never
       // z-fight (the cause of the black edge flicker seen while the camera moved).
       const frameDepth = Math.max(0.02, data.depthCm * CONFIG.CM_TO_UNIT * 0.5);
+      this._frameDepth = frameDepth;
       const frameInset = 0.985;
       const frameGeo = new THREE.BoxGeometry(w * frameInset, h * frameInset, frameDepth);
       const frameMat = new THREE.MeshStandardMaterial({
@@ -234,7 +207,12 @@ export class Painting {
 
     this._mirrorGlow = false;
 
+    // The wall cell reserved by the layout (cm-derived). The displayed quad is
+    // shrunk inside this to match the photo aspect once the texture loads, so
+    // paintings never overlap and never show black letterbox bars.
+    this._cellM = { w, h };
     this.sizeM = { w, h };
+    this._aspectFitted = false;
     this.animated = false;
     this.loaded = false;
     // Texture is loaded via the throttled queue (enqueueTexture), not here.
@@ -313,10 +291,15 @@ export class Painting {
     const ready = downscaleTexture(tex, cap);
     ready.colorSpace = THREE.SRGBColorSpace;
     ready.anisotropy = CONFIG.TEXTURE_ANISOTROPY ?? 8;
+    // Mipmaps stop the "stairs"/shimmer on painting edges when the camera moves
+    // and the texture is minified at grazing angles.
+    ready.generateMipmaps = true;
+    ready.minFilter = THREE.LinearMipmapLinearFilter;
+    ready.magFilter = THREE.LinearFilter;
     ready.needsUpdate = true;
     const img = ready.image;
     if (img?.width && img?.height) {
-      this.material.uniforms.uTexAspect.value = img.width / img.height;
+      this._resizeToAspect(img.width / img.height);
     }
     const old = this.material.uniforms.uMap.value;
     this.material.uniforms.uMap.value = ready;
@@ -324,6 +307,42 @@ export class Painting {
     if (!preview) this._fullLoaded = true;
     // Dispose the replaced texture (placeholder or thumb), never the new one.
     if (old && old.dispose && old !== ready) old.dispose();
+  }
+
+  // Shrink the quad inside its reserved cell so its aspect matches the photo.
+  // This replaces the old "contain" shader letterbox: instead of painting black
+  // bars inside a fixed quad, we make the quad the right shape — so there are no
+  // bars at all, no stretch, and no crop. Shrink-only keeps the layout safe.
+  _resizeToAspect(texAspect) {
+    if (this._aspectFitted || !texAspect || !isFinite(texAspect)) return;
+    const { w: cw, h: ch } = this._cellM;
+    const cellAspect = cw / ch;
+    let nw = cw;
+    let nh = ch;
+    if (texAspect > cellAspect) {
+      nh = cw / texAspect; // photo wider than cell -> limit by width
+    } else if (texAspect < cellAspect) {
+      nw = ch * texAspect; // photo taller than cell -> limit by height
+    }
+    // Skip negligible differences to avoid needless geometry churn.
+    if (Math.abs(nw - this.sizeM.w) < 1e-4 && Math.abs(nh - this.sizeM.h) < 1e-4) {
+      this._aspectFitted = true;
+      return;
+    }
+    this._aspectFitted = true;
+    this.sizeM = { w: nw, h: nh };
+
+    this.mesh.geometry.dispose();
+    this.mesh.geometry = new THREE.PlaneGeometry(nw, nh, 16, 16);
+    this.material.uniforms.uDepth.value = Math.min(0.05, Math.max(nw, nh) * 0.05);
+
+    if (this.frame) {
+      const inset = 0.985;
+      const fd = this._frameDepth ?? 0.02;
+      this.frame.geometry.dispose();
+      this.frame.geometry = new THREE.BoxGeometry(nw * inset, nh * inset, fd);
+    }
+    this.syncNeonPlateSize(nw, nh);
   }
 
   // Returns a promise that resolves when the aspect-correct preview is loaded.

@@ -34,5 +34,7 @@ export function applyMobileProfile() {
   CONFIG.SPHERE.maxPaintings = 36;
   CONFIG.SPHERE.maxArtists = 16;
 
-  return { active: true, antialias: false, pixelRatioMax: 1.5 };
+  // AA on (with mipmaps) removes the moving "stairs" jaggies Bart reported on
+  // high-contrast frame edges. pixelRatio stays capped so memory is unaffected.
+  return { active: true, antialias: true, pixelRatioMax: 1.5 };
 }

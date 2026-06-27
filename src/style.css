@@ -72,6 +72,8 @@ button.ghost { background: transparent; color: var(--text); border: 1px solid va
 button.ghost.active { background: var(--accent-2); color: #fff; border-color: var(--accent-2); }
 .hint { font-size: 12px; color: var(--muted); }
 .muted { color: var(--muted); }
+.chk { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); cursor: pointer; }
+.chk input { accent-color: var(--accent); width: 14px; height: 14px; }
 
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #d6604d; vertical-align: middle; }
 .dot.online { background: var(--accent); }

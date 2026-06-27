@@ -126,6 +126,8 @@ export class UI {
     // Painting actions
     this.animBtn = document.getElementById('anim-toggle');
     this.animBtn.addEventListener('click', () => this.h.onToggleAnimation());
+    this.flareBtn = document.getElementById('flare-toggle');
+    this.flareBtn?.addEventListener('click', () => this.h.onToggleLensFlare?.());
     document.getElementById('enter-btn').addEventListener('click', () => this.h.onEnter());
     document.getElementById('exit-btn').addEventListener('click', () => this.h.onExit());
   }
@@ -229,6 +231,12 @@ export class UI {
 
   setAnimationLabel(on) {
     this.animBtn.textContent = on ? 'Animation Off' : 'Animation On';
+  }
+
+  setLensFlareLabel(on) {
+    if (!this.flareBtn) return;
+    this.flareBtn.textContent = on ? 'Lens Flare Off' : 'Lens Flare On';
+    this.flareBtn.classList.toggle('active', !!on);
   }
 
   setMirrorLabel(on) {

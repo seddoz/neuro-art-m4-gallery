@@ -114,7 +114,44 @@
             <button id="enter-btn" class="ghost">Enter painting</button>
           </div>
           <div class="field row">
+            <button id="flare-toggle" class="ghost">Lens Flare On</button>
             <button id="exit-btn" class="ghost">Back to gallery</button>
+          </div>
+        </section>
+
+        <section class="panel-group" id="lensflare-group">
+          <h3>Lens Flare</h3>
+          <div class="hint muted">Toggle per painting above. Adjust the look here. The flare shines from the selected painting (or the pointer with Follow Mouse).</div>
+          <div class="field row">
+            <label class="chk"><input type="checkbox" id="lf-enabled" checked /> Enabled</label>
+            <label class="chk"><input type="checkbox" id="lf-follow" /> Follow Mouse</label>
+          </div>
+          <div class="field"><label>Star points <output id="o-lf-starpoints">5</output></label>
+            <input type="range" id="lf-starpoints" min="0" max="32" step="1" value="5" /></div>
+          <div class="field"><label>Glare size <output id="o-lf-glaresize">0.55</output></label>
+            <input type="range" id="lf-glaresize" min="0.01" max="1" step="0.01" value="0.55" /></div>
+          <div class="field"><label>Flare size <output id="o-lf-flaresize">0.004</output></label>
+            <input type="range" id="lf-flaresize" min="0" max="0.01" step="0.001" value="0.004" /></div>
+          <div class="field"><label>Flare speed <output id="o-lf-flarespeed">0.4</output></label>
+            <input type="range" id="lf-flarespeed" min="0" max="1" step="0.001" value="0.4" /></div>
+          <div class="field"><label>Flare shape <output id="o-lf-flareshape">1.2</output></label>
+            <input type="range" id="lf-flareshape" min="0" max="2" step="0.01" value="1.2" /></div>
+          <div class="field"><label>Halo scale <output id="o-lf-haloscale">0.5</output></label>
+            <input type="range" id="lf-haloscale" min="0.3" max="1" step="0.01" value="0.5" /></div>
+          <div class="field"><label>Opacity <output id="o-lf-opacity">0.8</output></label>
+            <input type="range" id="lf-opacity" min="0" max="1" step="0.01" value="0.8" /></div>
+          <div class="field"><label>Ghost scale <output id="o-lf-ghostscale">0.3</output></label>
+            <input type="range" id="lf-ghostscale" min="0.01" max="1" step="0.01" value="0.3" /></div>
+          <div class="field row">
+            <label class="chk"><input type="checkbox" id="lf-animated" checked /> Animated</label>
+            <label class="chk"><input type="checkbox" id="lf-anamorphic" /> Anamorphic</label>
+          </div>
+          <div class="field row">
+            <label class="chk"><input type="checkbox" id="lf-secondaryghosts" checked /> Secondary ghosts</label>
+            <label class="chk"><input type="checkbox" id="lf-starburst" checked /> Star burst</label>
+          </div>
+          <div class="field row">
+            <label class="chk"><input type="checkbox" id="lf-streaks" checked /> Additional streaks</label>
           </div>
         </section>
       </aside>
