@@ -19,9 +19,9 @@ export function applyMobileProfile() {
 
   CONFIG.TEX_CONCURRENCY = 2;
   CONFIG.TEX_MAX_DIM = 1536;
-  CONFIG.TEX_PREVIEW_DIM = 512; // aspect-correct wall preview, light on GPU
+  CONFIG.TEX_PREVIEW_DIM = 768; // aspect-correct wall preview via contain shader
   CONFIG.TEXTURE_ANISOTROPY = 2;
-  // Walls stay at preview quality; select/enter upgrades one work to full res.
+  CONFIG.MOBILE_WALL_SINGLE = true;
   CONFIG.AUTO_UPGRADE = false;
   CONFIG.LAYOUT_DEFAULT = {
     perWall: 6,

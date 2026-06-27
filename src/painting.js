@@ -34,6 +34,8 @@ const fragmentShader = /* glsl */ `
   uniform float uHue;        // 0..1
   uniform float uMode;       // 1 = painting mode active (SD affects work)
   uniform float uDirectLift; // mirror mode: match direct view to reflection brightness
+  uniform float uPlaneAspect; // plane width / height (from cm)
+  uniform float uTexAspect;   // texture pixel width / height
   varying vec2 vUv;
 
   vec3 hueShift(vec3 color, float h) {
@@ -43,7 +45,33 @@ const fragmentShader = /* glsl */ `
   }
 
   void main() {
-    vec4 tex = texture2D(uMap, vUv);
+    // object-fit: contain — show the full artwork inside the cm-sized frame.
+    // Stretching a photo to the stock quad caused visible "cropping" on mobile
+    // walls when cm aspect and photo aspect differ; enter looked correct because
+    // the full-res swap happened on tap. Contain keeps wall and enter identical.
+    float pa = uPlaneAspect;
+    float ta = uTexAspect;
+    vec2 uv = vUv;
+    if (pa > 0.001 && ta > 0.001) {
+      if (ta > pa) {
+        float h = pa / ta;
+        float y0 = (1.0 - h) * 0.5;
+        if (vUv.y < y0 || vUv.y > y0 + h) {
+          gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+          return;
+        }
+        uv.y = (vUv.y - y0) / h;
+      } else if (ta < pa) {
+        float w = ta / pa;
+        float x0 = (1.0 - w) * 0.5;
+        if (vUv.x < x0 || vUv.x > x0 + w) {
+          gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+          return;
+        }
+        uv.x = (vUv.x - x0) / w;
+      }
+    }
+    vec4 tex = texture2D(uMap, uv);
     vec3 col = tex.rgb;
     if (uMode > 0.5) {
       // contrast around mid grey
@@ -155,7 +183,9 @@ export class Painting {
         uBlend: { value: 0 },
         uHue: { value: 0 },
         uMode: { value: 0 },
-        uDirectLift: { value: 0 }
+        uDirectLift: { value: 0 },
+        uPlaneAspect: { value: w / h },
+        uTexAspect: { value: 1 }
       },
       side: THREE.DoubleSide
     });
@@ -275,13 +305,19 @@ export class Painting {
 
   // Apply a freshly loaded texture to the quad. Guarded so any exception still
   // resolves the queue job (a throw here previously stalled the whole queue).
-  _applyTexture(tex, { preview = false } = {}) {
-    const maxDim = preview
-      ? CONFIG.TEX_PREVIEW_DIM
-      : CONFIG.TEX_MAX_DIM || 0;
-    const ready = downscaleTexture(tex, maxDim);
+  _applyTexture(tex, { preview = false, maxDim = null } = {}) {
+    let cap = maxDim;
+    if (cap == null) {
+      cap = preview ? CONFIG.TEX_PREVIEW_DIM : CONFIG.TEX_MAX_DIM || 0;
+    }
+    const ready = downscaleTexture(tex, cap);
     ready.colorSpace = THREE.SRGBColorSpace;
     ready.anisotropy = CONFIG.TEXTURE_ANISOTROPY ?? 8;
+    ready.needsUpdate = true;
+    const img = ready.image;
+    if (img?.width && img?.height) {
+      this.material.uniforms.uTexAspect.value = img.width / img.height;
+    }
     const old = this.material.uniforms.uMap.value;
     this.material.uniforms.uMap.value = ready;
     this.loaded = true;
@@ -309,8 +345,18 @@ export class Painting {
               tex.dispose();
               return;
             }
-            this._applyTexture(tex, { preview: true });
-            if (CONFIG.AUTO_UPGRADE !== false) this.upgradeFullRes();
+            // Mobile: one aspect-correct wall load (no square crop, no tap needed).
+            // Desktop: smaller preview first, then background sharpen.
+            const mobileWall = CONFIG.MOBILE_WALL_SINGLE === true;
+            if (mobileWall) {
+              this._applyTexture(tex, {
+                preview: true,
+                maxDim: CONFIG.TEX_PREVIEW_DIM
+              });
+            } else {
+              this._applyTexture(tex, { preview: true });
+              if (CONFIG.AUTO_UPGRADE !== false) this.upgradeFullRes();
+            }
           } catch {
             /* keep placeholder; never block the queue */
           } finally {

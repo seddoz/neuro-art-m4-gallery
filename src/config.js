@@ -31,6 +31,8 @@ export const CONFIG = {
   // Background sharpen after preview (desktop). Mobile keeps preview on walls;
   // select/enter upgrades the focused work only (GPU memory guard).
   AUTO_UPGRADE: true,
+  // Mobile: load wall images once at TEX_PREVIEW_DIM with contain UV (no tap).
+  MOBILE_WALL_SINGLE: false,
   ACCEPTANCE_IDS: [282910, 282953, 282966],
   // Default gallery layout (overridden live by Layout panel sliders).
   // colPitch/rowStep are now the GAP (in metres) added between painting edges;
