@@ -62,10 +62,10 @@ const fragmentShader = /* glsl */ `
 const loader = new THREE.TextureLoader();
 
 // Two-tier throttled texture queue (BR-028 faster load):
-//  - `queue`        primary: small -300x300 thumbnails for a fast first paint.
-//  - `upgradeQueue` low priority: full-res (-scaled) swaps that run only once
-//                   every pending thumbnail has started, so the gallery looks
-//                   complete in seconds and sharpens in the background.
+//  - `queue`        primary: -scaled photo downscaled to TEX_PREVIEW_DIM
+//                   (correct aspect, fast first paint — never square crops).
+//  - `upgradeQueue` low priority: full-res sharpen that runs only once every
+//                   pending preview has started.
 // Hundreds of full-size JPGs cannot all download at once; concurrency is capped.
 let active = 0;
 const queue = [];
@@ -100,14 +100,6 @@ export function resetTextureQueue() {
 // texture failures (the image host does not send CORS headers).
 function proxiedImage(photo) {
   return `/img?url=${encodeURIComponent(photo)}`;
-}
-
-// Derive the WordPress square thumbnail URL (-300x300) from the stock photo.
-// AHG36 generates -150x150 and -300x300 crops for every upload, while -scaled
-// keeps the true aspect ratio. The thumb is ~10x smaller, so it is used for the
-// first paint and then replaced by -scaled for correct aspect + full detail.
-function thumbUrl(photo) {
-  return photo.replace(/(-scaled)?\.(jpe?g|png|webp)(\?.*)?$/i, '-300x300.$2$3');
 }
 
 // Shrink oversized photos before uploading to GPU (critical on mobile Safari).
@@ -283,22 +275,23 @@ export class Painting {
 
   // Apply a freshly loaded texture to the quad. Guarded so any exception still
   // resolves the queue job (a throw here previously stalled the whole queue).
-  _applyTexture(tex, { isThumb }) {
-    const ready = downscaleTexture(tex, CONFIG.TEX_MAX_DIM);
+  _applyTexture(tex, { preview = false } = {}) {
+    const maxDim = preview
+      ? CONFIG.TEX_PREVIEW_DIM
+      : CONFIG.TEX_MAX_DIM || 0;
+    const ready = downscaleTexture(tex, maxDim);
     ready.colorSpace = THREE.SRGBColorSpace;
     ready.anisotropy = CONFIG.TEXTURE_ANISOTROPY ?? 8;
     const old = this.material.uniforms.uMap.value;
     this.material.uniforms.uMap.value = ready;
     this.loaded = true;
-    this._isThumb = isThumb;
-    if (!isThumb) this._fullLoaded = true;
+    if (!preview) this._fullLoaded = true;
     // Dispose the replaced texture (placeholder or thumb), never the new one.
     if (old && old.dispose && old !== ready) old.dispose();
   }
 
-  // Returns a promise that resolves when the thumbnail is loaded (or failed).
-  // The full-res (-scaled) image is then queued at low priority so the gallery
-  // is usable fast and sharpens in the background (BR-028).
+  // Returns a promise that resolves when the aspect-correct preview is loaded.
+  // Full sharpen is queued at low priority on desktop (BR-028).
   _doLoad() {
     return new Promise((resolve) => {
       // Skip stale jobs for paintings removed on a page change/rebuild.
@@ -306,56 +299,33 @@ export class Painting {
         resolve();
         return;
       }
-      const full = this.data.photo;
-      const thumb = thumbUrl(full);
+      const photo = this.data.photo;
 
-      const finishThumb = (tex) => {
-        try {
-          if (this.disposed) {
-            tex.dispose();
-            return;
+      loader.load(
+        proxiedImage(photo),
+        (tex) => {
+          try {
+            if (this.disposed) {
+              tex.dispose();
+              return;
+            }
+            this._applyTexture(tex, { preview: true });
+            if (CONFIG.AUTO_UPGRADE !== false) this.upgradeFullRes();
+          } catch {
+            /* keep placeholder; never block the queue */
+          } finally {
+            resolve();
           }
-          this._applyTexture(tex, { isThumb: true });
-          // Auto-sharpen to full res in the background on capable devices.
-          // Mobile defers full res to selection/enter to protect GPU memory.
-          if (CONFIG.AUTO_UPGRADE !== false) this.upgradeFullRes();
-        } catch {
-          /* keep placeholder; never block the queue */
-        } finally {
-          resolve();
-        }
-      };
-
-      const finishFullDirect = (tex) => {
-        try {
-          if (this.disposed) {
-            tex.dispose();
-            return;
-          }
-          this._applyTexture(tex, { isThumb: false });
-        } catch {
-          /* keep placeholder */
-        } finally {
-          resolve();
-        }
-      };
-
-      // Thumb missing (rare) -> load full directly so the painting still shows.
-      const onThumbError = () => {
-        if (this.disposed) {
-          resolve();
-          return;
-        }
-        loader.load(proxiedImage(full), finishFullDirect, undefined, () => resolve());
-      };
-
-      loader.load(proxiedImage(thumb), finishThumb, undefined, onThumbError);
+        },
+        undefined,
+        () => resolve()
+      );
     });
   }
 
-  // Queue a full-resolution (-scaled) load that swaps in when ready. Safe to
-  // call repeatedly; runs after thumbnails. Used for background sharpening and
-  // forced on the selected/entered painting regardless of device.
+  // Queue a full-resolution load that swaps in when ready. Safe to call
+  // repeatedly; runs after previews. Used for background sharpening and forced
+  // on the selected/entered painting regardless of device.
   upgradeFullRes() {
     if (this.disposed || this._fullLoaded || this._upgrading || !this.data.photo) return;
     this._upgrading = true;
@@ -374,9 +344,9 @@ export class Painting {
                   tex.dispose();
                   return;
                 }
-                this._applyTexture(tex, { isThumb: false });
+                this._applyTexture(tex, { preview: false });
               } catch {
-                /* keep thumbnail */
+                /* keep preview */
               } finally {
                 this._upgrading = false;
                 resolve();

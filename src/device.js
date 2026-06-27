@@ -19,9 +19,9 @@ export function applyMobileProfile() {
 
   CONFIG.TEX_CONCURRENCY = 2;
   CONFIG.TEX_MAX_DIM = 1536;
+  CONFIG.TEX_PREVIEW_DIM = 512; // aspect-correct wall preview, light on GPU
   CONFIG.TEXTURE_ANISOTROPY = 2;
-  // Keep thumbnails on the walls; only the selected/entered work loads full res
-  // so phones do not hold hundreds of large textures (WebGL context-loss guard).
+  // Walls stay at preview quality; select/enter upgrades one work to full res.
   CONFIG.AUTO_UPGRADE = false;
   CONFIG.LAYOUT_DEFAULT = {
     perWall: 6,

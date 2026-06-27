@@ -23,11 +23,13 @@ export const CONFIG = {
   ROW_BASE_Y: 1.35, // bottom row center height
   ROW_STEP_Y: 1.5, // vertical spacing between rows
   TEX_CONCURRENCY: 6, // max simultaneous texture downloads (lowered on mobile)
-  TEX_MAX_DIM: 0, // 0 = no downscale; mobile sets e.g. 1536 to save GPU memory
+  TEX_MAX_DIM: 0, // 0 = no downscale on upgrade; mobile sets e.g. 1536
+  // Wall preview: -scaled downloaded then downscaled client-side so aspect ratio
+  // matches the real painting (never the square WordPress -300x300 crop).
+  TEX_PREVIEW_DIM: 768,
   TEXTURE_ANISOTROPY: 8, // capped on mobile
-  // BR-028: load -300x300 thumbnails first for a fast first paint, then upgrade
-  // to full -scaled in the background. On mobile this auto-upgrade is disabled
-  // (only the selected/entered painting upgrades) to protect limited GPU memory.
+  // Background sharpen after preview (desktop). Mobile keeps preview on walls;
+  // select/enter upgrades the focused work only (GPU memory guard).
   AUTO_UPGRADE: true,
   ACCEPTANCE_IDS: [282910, 282953, 282966],
   // Default gallery layout (overridden live by Layout panel sliders).
