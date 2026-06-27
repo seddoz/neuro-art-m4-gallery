@@ -51,7 +51,11 @@ async function getJson(url) {
 
 // Pull the full stock by paging get-products. Falls back to mock data if the
 // list endpoint is unauthorized/unreachable so the gallery still renders.
-export async function fetchAllPaintings({ pageSize = 100, max = 5000, onProgress } = {}) {
+// Fetch the full stock one page at a time. `onPage(cumulative, info)` is invoked
+// after each page with the growing array (same reference each call) so the
+// caller can render the first page immediately and let the rest stream in
+// (BR-028 progressive load). `info` carries { page, pages, total, done }.
+export async function fetchAllPaintings({ pageSize = 100, max = 5000, onPage } = {}) {
   const out = [];
   let page = 1;
   try {
@@ -60,9 +64,10 @@ export async function fetchAllPaintings({ pageSize = 100, max = 5000, onProgress
       const items = data.items || data.products || [];
       if (!items.length) break;
       for (const it of items) out.push(normalize(it));
-      onProgress && onProgress(out.length, data.total || null);
-      const totalPages = data.pages || 0;
-      if (totalPages && page >= totalPages) break;
+      const pages = data.pages || 0;
+      const done = !!(pages && page >= pages);
+      onPage && onPage(out, { page, pages, total: data.total || null, done });
+      if (done) break;
       page += 1;
     }
     if (out.length) return { paintings: out, source: 'api' };
@@ -71,6 +76,7 @@ export async function fetchAllPaintings({ pageSize = 100, max = 5000, onProgress
     console.warn('[api] full-stock list unavailable, using mock data:', err.message);
     // Enrich the three acceptance IDs with live single-product data when possible.
     const mock = MOCK_PAINTINGS.map(normalize);
+    onPage && onPage(mock, { page: 1, pages: 1, total: mock.length, done: true });
     return { paintings: mock, source: 'mock', error: err.message };
   }
 }

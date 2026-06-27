@@ -20,6 +20,9 @@ export function applyMobileProfile() {
   CONFIG.TEX_CONCURRENCY = 2;
   CONFIG.TEX_MAX_DIM = 1536;
   CONFIG.TEXTURE_ANISOTROPY = 2;
+  // Keep thumbnails on the walls; only the selected/entered work loads full res
+  // so phones do not hold hundreds of large textures (WebGL context-loss guard).
+  CONFIG.AUTO_UPGRADE = false;
   CONFIG.LAYOUT_DEFAULT = {
     perWall: 6,
     rows: 2,

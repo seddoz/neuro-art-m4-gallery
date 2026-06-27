@@ -191,6 +191,9 @@ export class UI {
     for (const [key, values] of Object.entries(facets)) {
       const sel = this.selectors[key];
       if (!sel) continue;
+      // Preserve the user's current choice across re-population (the option list
+      // is refreshed again when background stock pages finish loading, BR-028).
+      const prev = sel.value;
       sel.innerHTML = '';
       for (const v of values) {
         const opt = document.createElement('option');
@@ -198,6 +201,7 @@ export class UI {
         opt.textContent = v;
         sel.appendChild(opt);
       }
+      if (prev && values.includes(prev)) sel.value = prev;
     }
   }
 

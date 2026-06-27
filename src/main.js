@@ -239,6 +239,9 @@ function select(hit) {
   }
   if (hit.type === 'painting') {
     stateApp.selected = hit.painting;
+    // Ensure the focused work is full resolution even when background
+    // auto-upgrade is off (mobile) — selecting it should always sharpen it.
+    hit.painting.upgradeFullRes?.();
     ui.setSelected(hit.data);
     ui.setAnimationLabel(hit.painting.animated);
   } else {
@@ -306,6 +309,7 @@ function applyGalleryView(dims) {
 function enterPainting() {
   const p = stateApp.selected;
   if (!p) return;
+  p.upgradeFullRes?.(); // guarantee full detail when zooming into the work
   const worldPos = new THREE.Vector3();
   p.mesh.getWorldPosition(worldPos);
   const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(p.group.quaternion);
@@ -466,14 +470,31 @@ async function switchView(view, reframe = false) {
 }
 
 // --- catalog + filters ---
+// BR-028: render the gallery as soon as the first stock page arrives, then let
+// the remaining pages stream in. Previously the loader awaited every page (20+)
+// before painting anything, which is what produced the >2 minute blank wait.
 async function loadCatalog() {
   ui.setLoadingText('Fetching stock...');
-  const { paintings, source, error } = await fetchAllPaintings({
-    onProgress: (n, total) => ui.setLoadingText(`Loading ${n}${total ? '/' + total : ''}...`)
+  let firstRendered = false;
+  const result = await fetchAllPaintings({
+    onPage: (cumulative, info) => {
+      stateApp.all = cumulative; // same growing reference across pages
+      if (!firstRendered) {
+        firstRendered = true;
+        ui.populateFilters(buildFacets(stateApp.all));
+        rebuild(stateApp.all, true); // first paint — gallery is now interactive
+        ui.hideLoading();
+      } else {
+        // filtered shares the same array, so just refresh counts/paging here;
+        // rebuilding meshes would needlessly reload the on-screen textures.
+        updatePager();
+      }
+      ui.setLoadingText(`Loading ${cumulative.length}${info.total ? '/' + info.total : ''}...`);
+    }
   });
-  stateApp.all = paintings;
-  if (source === 'mock') {
-    console.warn('[catalog] using mock data:', error);
+
+  if (result.source === 'mock') {
+    console.warn('[catalog] using mock data:', result.error);
     // Best-effort: replace acceptance IDs with real public single-product data.
     await Promise.all(
       CONFIG.ACCEPTANCE_IDS.map(async (id) => {
@@ -484,14 +505,19 @@ async function loadCatalog() {
         } catch { /* keep mock */ }
       })
     );
+    rebuild(stateApp.all, true);
   }
+
+  // Full stock is in: refresh filter options (active choice preserved) + counts.
   ui.populateFilters(buildFacets(stateApp.all));
-  stateApp.authors = await fetchAuthors();
-  rebuild(stateApp.all, true);
-  // Sphere builds lazily on first Room->Sphere switch: building it here would
-  // expand the room shell to sphere height and queue ~100 extra textures while
-  // the wall gallery is still loading.
-  ui.hideLoading();
+  updatePager();
+  // Authors load in the background for the lazily-built sphere view.
+  fetchAuthors().then((a) => { stateApp.authors = a; }).catch(() => {});
+
+  if (!firstRendered) { // safety net: no page was ever delivered
+    rebuild(stateApp.all, true);
+    ui.hideLoading();
+  }
 }
 
 // A new filter result: reset to page 0 and render. reframe=true only on first load / ID lookup.
@@ -533,6 +559,27 @@ function renderPage(reframe) {
     applyGalleryView(gallery.dims);
     stateApp.cameraTween = null;
   }
+}
+
+// Lightweight count/paging refresh without rebuilding meshes. Used while the
+// rest of the stock streams in (BR-028) so background pages do not reload the
+// textures of the page already on screen.
+function updatePager() {
+  if (stateApp.view === 'sphere') return;
+  const total = stateApp.filtered.length;
+  const pageSize = layoutPageSize(stateApp.layout);
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  stateApp.page = Math.min(Math.max(0, stateApp.page), pages - 1);
+  const start = stateApp.page * pageSize;
+  const shown = Math.min(pageSize, Math.max(0, total - start));
+  ui.setResultCount({
+    from: total ? start + 1 : 0,
+    to: start + shown,
+    total,
+    page: stateApp.page + 1,
+    pages
+  });
+  ui.setPageNav(stateApp.page > 0, stateApp.page < pages - 1);
 }
 
 // --- UI handlers ---
@@ -683,6 +730,26 @@ canvas.addEventListener('webglcontextrestored', () => {
   restoreSceneAfterContextLoss();
   ui?.hideLoading();
 }, false);
+
+// BR-028 mobile tab-switch: when returning to a backgrounded tab (or a page
+// restored from the back/forward cache) the catalog is already in memory, so
+// just drop the long hidden time-gap and force one repaint. This avoids the
+// blank/stale canvas that made it look like the page had reloaded. If the GPU
+// context was dropped while hidden, the webglcontextrestored handler runs first.
+function resumeRender() {
+  clock.getDelta(); // discard the hidden gap so animation does not jump
+  const gl = renderer.getContext();
+  if (gl && !gl.isContextLost()) {
+    controls.update();
+    renderer.render(scene, camera);
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) resumeRender();
+});
+addEventListener('pageshow', (e) => {
+  if (e.persisted) resumeRender();
+});
 
 ui._syncLayoutLabels();
 loadCatalog();

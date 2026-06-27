@@ -25,6 +25,10 @@ export const CONFIG = {
   TEX_CONCURRENCY: 6, // max simultaneous texture downloads (lowered on mobile)
   TEX_MAX_DIM: 0, // 0 = no downscale; mobile sets e.g. 1536 to save GPU memory
   TEXTURE_ANISOTROPY: 8, // capped on mobile
+  // BR-028: load -300x300 thumbnails first for a fast first paint, then upgrade
+  // to full -scaled in the background. On mobile this auto-upgrade is disabled
+  // (only the selected/entered painting upgrades) to protect limited GPU memory.
+  AUTO_UPGRADE: true,
   ACCEPTANCE_IDS: [282910, 282953, 282966],
   // Default gallery layout (overridden live by Layout panel sliders).
   // colPitch/rowStep are now the GAP (in metres) added between painting edges;
