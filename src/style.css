@@ -74,6 +74,9 @@ button.ghost.active { background: var(--accent-2); color: #fff; border-color: va
 .muted { color: var(--muted); }
 .chk { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); cursor: pointer; }
 .chk input { accent-color: var(--accent); width: 14px; height: 14px; }
+.lf-color-row { align-items: center; justify-content: space-between; }
+.lf-color-row label { font-size: 12px; color: var(--text); }
+.lf-color-row input[type="color"] { width: 40px; height: 26px; padding: 2px; border: 1px solid var(--border, #444); border-radius: 4px; background: transparent; cursor: pointer; }
 
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #d6604d; vertical-align: middle; }
 .dot.online { background: var(--accent); }

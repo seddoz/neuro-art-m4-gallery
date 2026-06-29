@@ -825,6 +825,21 @@ function wireLensFlareControls() {
   check('lf-secondaryghosts', (on) => lensFlare.setParam('secondaryGhosts', on));
   check('lf-starburst', (on) => lensFlare.setParam('starBurst', on));
   check('lf-streaks', (on) => lensFlare.setParam('aditionalStreaks', on));
+
+  // Color picker: converts hex (#rrggbb) to the 0-255 scale the shader uses
+  // (the shader divides colorGain by 256, so raw 0-255 byte values are correct).
+  const colorInput = document.getElementById('lf-color');
+  if (colorInput) {
+    const applyColor = () => {
+      const hex = colorInput.value;
+      const u = lensFlare.material.uniforms.colorGain.value;
+      u.r = parseInt(hex.slice(1, 3), 16);
+      u.g = parseInt(hex.slice(3, 5), 16);
+      u.b = parseInt(hex.slice(5, 7), 16);
+    };
+    colorInput.addEventListener('input', applyColor);
+    applyColor();
+  }
 }
 
 wireLensFlareControls();
