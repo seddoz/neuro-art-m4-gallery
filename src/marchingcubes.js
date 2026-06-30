@@ -58,9 +58,23 @@ export class MarchingCubesEffect {
     return this.caps.maxResolution;
   }
 
+  // 1x1 white fallback so the artwork sampler is always valid before a painting
+  // texture is assigned (avoids a null-sampler warning on first compile).
+  _placeholderTex() {
+    if (!this._placeholder) {
+      this._placeholder = new THREE.DataTexture(
+        new Uint8Array([255, 255, 255, 255]),
+        1,
+        1,
+        THREE.RGBAFormat
+      );
+      this._placeholder.needsUpdate = true;
+    }
+    return this._placeholder;
+  }
+
   // Build the materials once. Kept simple and light: standard PBR under the
-  // gallery's existing lights, plus an "artwork" preset that maps the painting
-  // texture onto the blob, and a translucent "glass" preset.
+  // gallery's existing lights, plus an "artwork" preset and a "glass" preset.
   _buildMaterials() {
     const base = (extra) =>
       new THREE.MeshStandardMaterial({
@@ -82,8 +96,57 @@ export class MarchingCubesEffect {
         transparent: true,
         side: THREE.DoubleSide
       }),
-      artwork: base({ roughness: 0.5, metalness: 0.0, map: this._artworkTex || null })
+      artwork: this._buildArtworkMaterial()
     };
+  }
+
+  // "Artwork colors": the blob mirrors the painting region directly behind each
+  // surface point. Instead of a generic texture wrap, we PROJECT the painting
+  // plane onto the blob along the painting normal (planar projection). Each blob
+  // vertex's world position is mapped into the painting's (right, up) basis to a
+  // UV, so the colors line up 1:1 with what is behind the blob on the canvas.
+  _buildArtworkMaterial() {
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.5,
+      metalness: 0.0,
+      side: THREE.DoubleSide
+    });
+    mat.onBeforeCompile = (shader) => {
+      shader.uniforms.uArtTex = { value: this._artworkTex || this._placeholderTex() };
+      shader.uniforms.uProjCenter = { value: new THREE.Vector3() };
+      shader.uniforms.uProjRight = { value: new THREE.Vector3(1, 0, 0) };
+      shader.uniforms.uProjUp = { value: new THREE.Vector3(0, 1, 0) };
+      shader.uniforms.uProjSize = { value: new THREE.Vector2(1, 1) };
+      mat.userData.proj = shader.uniforms;
+
+      shader.vertexShader =
+        'varying vec3 vBlobWorldPos;\n' +
+        shader.vertexShader.replace(
+          '#include <begin_vertex>',
+          '#include <begin_vertex>\n  vBlobWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;'
+        );
+
+      shader.fragmentShader =
+        'uniform sampler2D uArtTex;\n' +
+        'uniform vec3 uProjCenter;\n' +
+        'uniform vec3 uProjRight;\n' +
+        'uniform vec3 uProjUp;\n' +
+        'uniform vec2 uProjSize;\n' +
+        'varying vec3 vBlobWorldPos;\n' +
+        shader.fragmentShader.replace(
+          '#include <color_fragment>',
+          `#include <color_fragment>
+          {
+            vec3 relP = vBlobWorldPos - uProjCenter;
+            float pu = clamp(dot(relP, uProjRight) / uProjSize.x + 0.5, 0.0, 1.0);
+            float pv = clamp(dot(relP, uProjUp) / uProjSize.y + 0.5, 0.0, 1.0);
+            vec4 artC = texture2D(uArtTex, vec2(pu, pv));
+            diffuseColor.rgb = artC.rgb;
+          }`
+        );
+    };
+    return mat;
   }
 
   // Lazily create the MarchingCubes mesh and add it to the scene (hidden).
@@ -119,10 +182,8 @@ export class MarchingCubesEffect {
 
   setArtworkTexture(tex) {
     this._artworkTex = tex || null;
-    if (this._materials?.artwork) {
-      this._materials.artwork.map = this._artworkTex;
-      this._materials.artwork.needsUpdate = true;
-    }
+    const proj = this._materials?.artwork?.userData?.proj;
+    if (proj) proj.uArtTex.value = this._artworkTex || this._placeholderTex();
   }
 
   setParam(key, value) {
@@ -188,10 +249,21 @@ export class MarchingCubesEffect {
     const s = target / 2;
     this._mc.scale.setScalar(s);
 
-    // Float it in front of the canvas; keep at least half its size clear so it
-    // never intersects the artwork plane.
-    const dist = Math.max(this.params.offset, target * 0.55);
-    this._mc.position.copy(this._pos).addScaledVector(this._normal, dist);
+    // Distance from the canvas to the blob centre. At offset 0 the cluster is
+    // centred ON the painting plane, so the blobs break through the surface like
+    // droplets on water (the opaque canvas hides the half behind it). Larger
+    // offsets push the blob forward into the room.
+    this._mc.position.copy(this._pos).addScaledVector(this._normal, this.params.offset);
+
+    // Keep the "artwork colors" projection aligned with the painting each frame
+    // (the painting basis can move when the layout/page changes).
+    const proj = this._materials.artwork?.userData?.proj;
+    if (proj && this._mc.material === this._materials.artwork) {
+      proj.uProjCenter.value.copy(this._pos);
+      proj.uProjRight.value.set(1, 0, 0).applyQuaternion(this._quat).normalize();
+      proj.uProjUp.value.set(0, 1, 0).applyQuaternion(this._quat).normalize();
+      proj.uProjSize.value.set(sizeM?.w || 1, sizeM?.h || 1);
+    }
   }
 
   // Advance the metaball simulation and re-polygonize. Mirrors the three.js
