@@ -128,6 +128,8 @@ export class UI {
     this.animBtn.addEventListener('click', () => this.h.onToggleAnimation());
     this.flareBtn = document.getElementById('flare-toggle');
     this.flareBtn?.addEventListener('click', () => this.h.onToggleLensFlare?.());
+    this.mcBtn = document.getElementById('mc-toggle');
+    this.mcBtn?.addEventListener('click', () => this.h.onToggleMarchingCubes?.());
     document.getElementById('enter-btn').addEventListener('click', () => this.h.onEnter());
     document.getElementById('exit-btn').addEventListener('click', () => this.h.onExit());
   }
@@ -237,6 +239,12 @@ export class UI {
     if (!this.flareBtn) return;
     this.flareBtn.textContent = on ? 'Lens Flare Off' : 'Lens Flare On';
     this.flareBtn.classList.toggle('active', !!on);
+  }
+
+  setMarchingCubesLabel(on) {
+    if (!this.mcBtn) return;
+    this.mcBtn.textContent = on ? 'Marching Cubes Off' : 'Marching Cubes On';
+    this.mcBtn.classList.toggle('active', !!on);
   }
 
   setMirrorLabel(on) {

@@ -10,6 +10,7 @@ import { fetchAllPaintings, fetchPainting, fetchAuthors, buildFacets, applyFilte
 import { CONFIG, layoutPageSize } from './config.js';
 import { applyMobileProfile } from './device.js';
 import { LensFlareOverlay } from './lensflare.js';
+import { MarchingCubesEffect } from './marchingcubes.js';
 
 const mobile = applyMobileProfile();
 const canvas = document.getElementById('scene');
@@ -26,6 +27,11 @@ scene.background = new THREE.Color(SCENE_BG);
 // shines from the selected painting (or the pointer in Follow Mouse mode).
 const lensFlare = new LensFlareOverlay();
 lensFlare.setResolution(renderer.domElement.width, renderer.domElement.height);
+
+// Marching Cubes (metaball) effect for the selected painting. One shared
+// instance; only the selected work with its toggle on ever shows it.
+const marching = new MarchingCubesEffect({ mobile: mobile.active });
+marching.ensure(scene);
 // No fog — keeps the void pure black like the reference gallery view.
 
 // Tight near/far range keeps depth-buffer precision high so distant paintings
@@ -241,6 +247,7 @@ function select(hit) {
     ui.setSelected(null);
     ui.setAnimationLabel(false);
     ui.setLensFlareLabel(false);
+    ui.setMarchingCubesLabel(false);
     applyLook(sd.look());
     return;
   }
@@ -252,10 +259,14 @@ function select(hit) {
     ui.setSelected(hit.data);
     ui.setAnimationLabel(hit.painting.animated);
     ui.setLensFlareLabel(!!hit.painting.lensFlareOn);
+    ui.setMarchingCubesLabel(!!hit.painting.mcOn);
+    // Feed the selected work's texture to the "artwork" MC material preset.
+    marching.setArtworkTexture(hit.painting.material.uniforms.uMap.value);
   } else {
     stateApp.selected = null;
     ui.setSelected({ title: hit.data.title, artist: hit.data.artist, id: '', widthCm: 0, heightCm: 0 });
     ui.setAnimationLabel(false);
+    ui.setMarchingCubesLabel(false);
   }
   applyLook(sd.look());
 }
@@ -663,6 +674,13 @@ const ui = new UI({
     p.lensFlareOn = !p.lensFlareOn;
     ui.setLensFlareLabel(p.lensFlareOn);
   },
+  onToggleMarchingCubes: () => {
+    const p = stateApp.selected;
+    if (!p) return;
+    p.mcOn = !p.mcOn;
+    ui.setMarchingCubesLabel(p.mcOn);
+    if (p.mcOn) marching.setArtworkTexture(p.material.uniforms.uMap.value);
+  },
   onMirrorToggle: (on) => {
     stateApp.mirrorOn = on;
     if (stateApp.view === 'sphere') ensureGalleryRoom();
@@ -709,6 +727,17 @@ function updateLensFlare() {
   return true;
 }
 
+// Marching cubes runs only for the selected painting in room view with its
+// toggle on. It is a scene object, so it must be updated BEFORE renderer.render.
+function updateMarchingCubes(dt) {
+  const p = stateApp.selected;
+  const show = !!(p && p.mcOn && stateApp.view === 'room');
+  marching.setVisible(show);
+  if (!show) return;
+  marching.place(p.group, p.sizeM);
+  marching.update(dt);
+}
+
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
@@ -728,6 +757,7 @@ function animate() {
   gallery.update(dt);
   if (stateApp.view === 'sphere') sphere.update(dt, camera);
   controls.update();
+  updateMarchingCubes(dt);
   renderer.render(scene, camera);
 
   if (updateLensFlare()) lensFlare.render(renderer, flareElapsed);
@@ -843,6 +873,72 @@ function wireLensFlareControls() {
 }
 
 wireLensFlareControls();
+
+// --- Marching Cubes control panel wiring. Same pattern as the lens flare:
+// sliders push a numeric param + update their <output>; selects/checkboxes push
+// the matching param live. The effect only renders for the selected painting.
+function wireMarchingCubesControls() {
+  const slider = (id, outId, key, fixed) => {
+    const input = document.getElementById(id);
+    const out = document.getElementById(outId);
+    if (!input) return;
+    const apply = () => {
+      const v = parseFloat(input.value);
+      marching.setParam(key, v);
+      if (out) out.textContent = fixed != null ? v.toFixed(fixed) : String(v);
+    };
+    input.addEventListener('input', apply);
+    apply();
+  };
+  const check = (id, key) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    const apply = () => marching.setParam(key, input.checked);
+    input.addEventListener('change', apply);
+    apply();
+  };
+
+  // Clamp the resolution slider to this device's safe ceiling (mobile is lower).
+  const resInput = document.getElementById('mc-resolution');
+  if (resInput) {
+    resInput.max = String(marching.maxResolution);
+    if (parseFloat(resInput.value) > marching.maxResolution) {
+      resInput.value = String(marching.params.resolution);
+    }
+  }
+
+  const enabledInput = document.getElementById('mc-enabled');
+  if (enabledInput) {
+    const apply = () => marching.setEnabled(enabledInput.checked);
+    enabledInput.addEventListener('change', apply);
+    apply();
+  }
+
+  slider('mc-numblobs', 'o-mc-numblobs', 'numBlobs', 0);
+  slider('mc-resolution', 'o-mc-resolution', 'resolution', 0);
+  slider('mc-isolation', 'o-mc-isolation', 'isolation', 0);
+  slider('mc-speed', 'o-mc-speed', 'speed', 2);
+  slider('mc-scale', 'o-mc-scale', 'scale', 2);
+  slider('mc-offset', 'o-mc-offset', 'offset', 2);
+  slider('mc-opacity', 'o-mc-opacity', 'opacity', 2);
+  check('mc-spin', 'spin');
+
+  const matSelect = document.getElementById('mc-material');
+  if (matSelect) {
+    const apply = () => marching.setParam('material', matSelect.value);
+    matSelect.addEventListener('change', apply);
+    apply();
+  }
+
+  const colorInput = document.getElementById('mc-color');
+  if (colorInput) {
+    const apply = () => marching.setParam('color', colorInput.value);
+    colorInput.addEventListener('input', apply);
+    apply();
+  }
+}
+
+wireMarchingCubesControls();
 ui._syncLayoutLabels();
 loadCatalog();
 animate();
