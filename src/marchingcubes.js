@@ -134,17 +134,24 @@ export class MarchingCubesEffect {
         'uniform vec3 uProjUp;\n' +
         'uniform vec2 uProjSize;\n' +
         'varying vec3 vBlobWorldPos;\n' +
-        shader.fragmentShader.replace(
-          '#include <color_fragment>',
-          `#include <color_fragment>
-          {
+        'vec3 vArtMirror = vec3(1.0);\n' +
+        shader.fragmentShader
+          .replace(
+            '#include <map_fragment>',
+            `#include <map_fragment>
             vec3 relP = vBlobWorldPos - uProjCenter;
             float pu = clamp(dot(relP, uProjRight) / uProjSize.x + 0.5, 0.0, 1.0);
             float pv = clamp(dot(relP, uProjUp) / uProjSize.y + 0.5, 0.0, 1.0);
-            vec4 artC = texture2D(uArtTex, vec2(pu, pv));
-            diffuseColor.rgb = artC.rgb;
-          }`
-        );
+            vArtMirror = texture2D(uArtTex, vec2(pu, pv)).rgb;
+            diffuseColor.rgb = vArtMirror;`
+          )
+          .replace(
+            '#include <emissivemap_fragment>',
+            `#include <emissivemap_fragment>
+            // Lift the painting colors so the blob reads as a clear mirror of the
+            // canvas behind it even in shaded areas (not washed out by lighting).
+            totalEmissiveRadiance += vArtMirror * 0.45;`
+          );
     };
     return mat;
   }
