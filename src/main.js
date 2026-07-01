@@ -18,6 +18,10 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: mobile.antialias }
 renderer.setPixelRatio(Math.min(devicePixelRatio, mobile.pixelRatioMax));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+// Per-material clipping planes (used by the Marching Cubes blob to cut anything
+// behind the selected painting). Only materials that set clippingPlanes pay any
+// cost, so this is safe for the rest of the scene.
+renderer.localClippingEnabled = true;
 
 const SCENE_BG = CONFIG.SCENE_BG;
 const scene = new THREE.Scene();

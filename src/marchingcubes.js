@@ -52,6 +52,12 @@ export class MarchingCubesEffect {
     this._pos = new THREE.Vector3();
     this._normal = new THREE.Vector3();
     this._quat = new THREE.Quaternion();
+
+    // World-space clipping plane coincident with the painting. Everything behind
+    // the canvas is discarded, so at offset 0 the blobs read as domes immersed in
+    // the painting surface (front half only), and nothing pokes out behind the
+    // wall. Kept side = the half the normal points to (towards the viewer).
+    this._clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
   }
 
   get maxResolution() {
@@ -98,6 +104,14 @@ export class MarchingCubesEffect {
       }),
       artwork: this._buildArtworkMaterial()
     };
+
+    // Clip every preset against the painting plane (requires
+    // renderer.localClippingEnabled = true, set once in main.js). These materials
+    // are exclusive to the blob, so no other geometry is affected.
+    for (const m of Object.values(this._materials)) {
+      m.clippingPlanes = [this._clipPlane];
+      m.clipIntersection = false;
+    }
   }
 
   // "Artwork colors": the blob mirrors the painting region directly behind each
@@ -257,10 +271,16 @@ export class MarchingCubesEffect {
     this._mc.scale.setScalar(s);
 
     // Distance from the canvas to the blob centre. At offset 0 the cluster is
-    // centred ON the painting plane, so the blobs break through the surface like
-    // droplets on water (the opaque canvas hides the half behind it). Larger
-    // offsets push the blob forward into the room.
+    // centred ON the painting plane; the clipping plane below removes the back
+    // half, so the blobs read as domes immersed in the surface (water-surface
+    // look). Larger offsets push the whole cluster forward into the room.
     this._mc.position.copy(this._pos).addScaledVector(this._normal, this.params.offset);
+
+    // Pin the clipping plane to the painting surface every frame (the painting
+    // may be on any wall, so the normal/position can differ per selection). The
+    // clip stays at the canvas regardless of the front offset, so nothing ever
+    // renders behind the painting.
+    this._clipPlane.setFromNormalAndCoplanarPoint(this._normal, this._pos);
 
     // Keep the "artwork colors" projection aligned with the painting each frame
     // (the painting basis can move when the layout/page changes).

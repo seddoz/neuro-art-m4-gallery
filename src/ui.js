@@ -130,6 +130,13 @@ export class UI {
     this.flareBtn?.addEventListener('click', () => this.h.onToggleLensFlare?.());
     this.mcBtn = document.getElementById('mc-toggle');
     this.mcBtn?.addEventListener('click', () => this.h.onToggleMarchingCubes?.());
+    // Effect control panels are revealed only while that effect is on (see
+    // setLensFlareLabel / setMarchingCubesLabel), so the sidebar isn't cluttered
+    // with sliders for effects that aren't running.
+    this.flareGroup = document.getElementById('lensflare-group');
+    this.mcGroup = document.getElementById('marchingcubes-group');
+    if (this.flareGroup) this.flareGroup.hidden = true;
+    if (this.mcGroup) this.mcGroup.hidden = true;
     document.getElementById('enter-btn').addEventListener('click', () => this.h.onEnter());
     document.getElementById('exit-btn').addEventListener('click', () => this.h.onExit());
   }
@@ -239,12 +246,14 @@ export class UI {
     if (!this.flareBtn) return;
     this.flareBtn.textContent = on ? 'Lens Flare Off' : 'Lens Flare On';
     this.flareBtn.classList.toggle('active', !!on);
+    if (this.flareGroup) this.flareGroup.hidden = !on;
   }
 
   setMarchingCubesLabel(on) {
     if (!this.mcBtn) return;
     this.mcBtn.textContent = on ? 'Marching Cubes Off' : 'Marching Cubes On';
     this.mcBtn.classList.toggle('active', !!on);
+    if (this.mcGroup) this.mcGroup.hidden = !on;
   }
 
   setMirrorLabel(on) {
