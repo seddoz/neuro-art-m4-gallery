@@ -363,6 +363,10 @@ export class LensFlareOverlay {
   constructor() {
     this.params = { ...LENS_FLARE_DEFAULTS };
     this.followMouse = this.params.followMouse;
+    // Where the flare originates when not following the mouse: 'painting' (the
+    // selected work projected to screen) or 'horizon' (a distant point beyond
+    // the wall, like a low sun). main.js reads this in updateLensFlare().
+    this.sourceMode = 'painting';
     this._mouse = new THREE.Vector2(0, 0);
 
     this.material = new THREE.ShaderMaterial({
@@ -422,6 +426,10 @@ export class LensFlareOverlay {
   setFollowMouse(on) {
     this.followMouse = !!on;
     this.params.followMouse = !!on;
+  }
+
+  setSourceMode(mode) {
+    this.sourceMode = mode === 'horizon' ? 'horizon' : 'painting';
   }
 
   // Generic setter for the numeric/boolean shader params (keys match uniforms).

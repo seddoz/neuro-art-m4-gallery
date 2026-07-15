@@ -141,6 +141,15 @@ export class UI {
     if (this.flareGroup) this.flareGroup.hidden = true;
     if (this.mcGroup) this.mcGroup.hidden = true;
     if (this.vatGroup) this.vatGroup.hidden = true;
+
+    // Per-painting audio guide (EN/PL). Hidden unless the selected work has audio.
+    this.audioField = document.getElementById('audio-field');
+    this.audioPlayer = document.getElementById('audio-player');
+    this.audioEnBtn = document.getElementById('audio-en');
+    this.audioPlBtn = document.getElementById('audio-pl');
+    this._audio = { en: '', pl: '', lang: 'en' };
+    this.audioEnBtn?.addEventListener('click', () => this._setAudioLang('en', true));
+    this.audioPlBtn?.addEventListener('click', () => this._setAudioLang('pl', true));
     document.getElementById('enter-btn').addEventListener('click', () => this.h.onEnter());
     document.getElementById('exit-btn').addEventListener('click', () => this.h.onExit());
   }
@@ -240,6 +249,44 @@ export class UI {
     }
     const price = p.priceEur != null ? ` - EUR ${p.priceEur}` : '';
     el.innerHTML = `<strong>${p.title || 'Untitled'}</strong><br>${p.artist || 'Unknown'}<br>${p.widthCm} x ${p.heightCm} cm${price}<br><span class="muted">#${p.id} - ${p.collection || ''} ${p.location ? '- ' + p.location : ''}</span>`;
+  }
+
+  // Show/hide the audio guide for the selected painting. Pass the normalized
+  // painting data (with audioEn/audioPl) or null to hide + stop playback.
+  setPaintingAudio(data) {
+    const en = (data && data.audioEn) || '';
+    const pl = (data && data.audioPl) || '';
+    this._audio.en = en;
+    this._audio.pl = pl;
+    const has = !!(en || pl);
+    if (this.audioField) this.audioField.hidden = !has;
+    if (!has) {
+      this._stopAudio();
+      return;
+    }
+    if (this.audioEnBtn) this.audioEnBtn.disabled = !en;
+    if (this.audioPlBtn) this.audioPlBtn.disabled = !pl;
+    // Default to EN when available, otherwise PL. Load only (no autoplay) so the
+    // browser doesn't block on selection; the user presses play or a lang button.
+    this._setAudioLang(en ? 'en' : 'pl', false);
+  }
+
+  _setAudioLang(lang, autoplay) {
+    const url = lang === 'pl' ? this._audio.pl : this._audio.en;
+    if (!url || !this.audioPlayer) return;
+    this._audio.lang = lang;
+    if (this.audioEnBtn) this.audioEnBtn.classList.toggle('active', lang === 'en');
+    if (this.audioPlBtn) this.audioPlBtn.classList.toggle('active', lang === 'pl');
+    const abs = new URL(url, window.location.href).href;
+    if (this.audioPlayer.src !== abs) this.audioPlayer.src = url;
+    if (autoplay) this.audioPlayer.play().catch(() => {});
+  }
+
+  _stopAudio() {
+    if (!this.audioPlayer) return;
+    this.audioPlayer.pause();
+    this.audioPlayer.removeAttribute('src');
+    this.audioPlayer.load();
   }
 
   setAnimationLabel(on) {

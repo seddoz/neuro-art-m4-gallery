@@ -39,6 +39,11 @@ export function normalize(raw) {
     size: clean(raw.Size),
     sizeLabel: clean(raw.Size_Label),
     priceEur: raw.Price && raw.Price.EUR != null ? raw.Price.EUR : null,
+    // Per-painting audio guide (added for newer works). Absent on older stock
+    // and on the list endpoint, so main.js lazy-fetches the single product when
+    // a selected painting has no audio yet.
+    audioEn: clean(raw.Description_audio_en),
+    audioPl: clean(raw.Description_audio_pl),
     status: clean(raw.Status) || 'unavailable'
   };
 }

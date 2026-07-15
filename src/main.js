@@ -255,6 +255,7 @@ function select(hit) {
   if (!hit) {
     stateApp.selected = null;
     ui.setSelected(null);
+    ui.setPaintingAudio(null);
     ui.setAnimationLabel(false);
     ui.setLensFlareLabel(false);
     ui.setMarchingCubesLabel(false);
@@ -268,6 +269,19 @@ function select(hit) {
     // auto-upgrade is off (mobile) — selecting it should always sharpen it.
     hit.painting.upgradeFullRes?.();
     ui.setSelected(hit.data);
+    // Audio guide: use what we already have, else lazy-fetch the single product
+    // (the list endpoint omits audio fields). Only apply if still selected.
+    ui.setPaintingAudio(hit.data);
+    if (!hit.data.audioEn && !hit.data.audioPl && hit.data.id) {
+      const pd = hit.painting.data;
+      fetchPainting(hit.data.id)
+        .then((full) => {
+          pd.audioEn = full.audioEn;
+          pd.audioPl = full.audioPl;
+          if (stateApp.selected === hit.painting) ui.setPaintingAudio(pd);
+        })
+        .catch(() => {});
+    }
     ui.setAnimationLabel(hit.painting.animated);
     ui.setLensFlareLabel(!!hit.painting.lensFlareOn);
     ui.setMarchingCubesLabel(!!hit.painting.mcOn);
@@ -278,6 +292,7 @@ function select(hit) {
   } else {
     stateApp.selected = null;
     ui.setSelected({ title: hit.data.title, artist: hit.data.artist, id: '', widthCm: 0, heightCm: 0 });
+    ui.setPaintingAudio(null);
     ui.setAnimationLabel(false);
     ui.setMarchingCubesLabel(false);
     ui.setVatLabel(false);
@@ -741,7 +756,17 @@ function updateLensFlare() {
   if (lensFlare.followMouse) return true;
   const p = stateApp.selected;
   if (!p || !p.lensFlareOn) return false;
-  p.mesh.getWorldPosition(_flareSrc);
+  if (lensFlare.sourceMode === 'horizon') {
+    // A distant "sun on the horizon" beyond the front wall (down the -Z axis at
+    // eye height). Drawn additively after the scene with no depth test, so it
+    // glows through the far wall like a light source outside the room.
+    const dims = gallery.dims;
+    const L = dims?.wallLen ?? 12;
+    const h = dims?.height ?? CONFIG.WALL_HEIGHT_M;
+    _flareSrc.set(0, h * 0.4, -(L / 2) - Math.max(60, L * 5));
+  } else {
+    p.mesh.getWorldPosition(_flareSrc);
+  }
   _flareSrc.project(camera);
   if (_flareSrc.z > 1) return false; // behind the camera
   lensFlare.setSourceNDC(_flareSrc.x, _flareSrc.y);
@@ -875,6 +900,12 @@ function wireLensFlareControls() {
 
   check('lf-enabled', (on) => lensFlare.setEnabled(on));
   check('lf-follow', (on) => lensFlare.setFollowMouse(on));
+  const source = document.getElementById('lf-source');
+  if (source) {
+    const applySource = () => lensFlare.setSourceMode(source.value);
+    source.addEventListener('change', applySource);
+    applySource();
+  }
   slider('lf-starpoints', 'o-lf-starpoints', 'starPoints', 0);
   slider('lf-glaresize', 'o-lf-glaresize', 'glareSize', 2);
   slider('lf-flaresize', 'o-lf-flaresize', 'flareSize', 3);

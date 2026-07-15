@@ -123,14 +123,28 @@
           <div class="field row">
             <button id="vat-toggle" class="ghost">Houdini FX On</button>
           </div>
+          <div class="field" id="audio-field" hidden>
+            <label>Audio guide</label>
+            <div class="field row">
+              <button id="audio-en" class="ghost active">EN</button>
+              <button id="audio-pl" class="ghost">PL</button>
+            </div>
+            <audio id="audio-player" controls preload="none" class="audio-player"></audio>
+          </div>
         </section>
 
         <section class="panel-group" id="lensflare-group">
           <h3>Lens Flare</h3>
-          <div class="hint muted">Toggle per painting above. Adjust the look here. The flare shines from the selected painting (or the pointer with Follow Mouse).</div>
+          <div class="hint muted">Toggle per painting above. Adjust the look here. The flare shines from the selected painting, the horizon, or the pointer with Follow Mouse.</div>
           <div class="field row">
             <label class="chk"><input type="checkbox" id="lf-enabled" checked /> Enabled</label>
             <label class="chk"><input type="checkbox" id="lf-follow" /> Follow Mouse</label>
+          </div>
+          <div class="field"><label for="lf-source">Flare origin</label>
+            <select id="lf-source">
+              <option value="painting" selected>On the painting</option>
+              <option value="horizon">On the horizon (far behind wall)</option>
+            </select>
           </div>
           <div class="field"><label>Star points <output id="o-lf-starpoints">5</output></label>
             <input type="range" id="lf-starpoints" min="0" max="32" step="1" value="5" /></div>

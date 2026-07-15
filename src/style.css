@@ -70,6 +70,8 @@ button {
 }
 button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); font-weight: 500; }
 button.ghost.active { background: var(--accent-2); color: #fff; border-color: var(--accent-2); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+.audio-player { width: 100%; margin-top: 6px; height: 34px; }
 .hint { font-size: 12px; color: var(--muted); }
 .muted { color: var(--muted); }
 .chk { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); cursor: pointer; }
