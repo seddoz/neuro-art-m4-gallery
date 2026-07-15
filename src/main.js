@@ -12,6 +12,7 @@ import { applyMobileProfile } from './device.js';
 import { LensFlareOverlay } from './lensflare.js';
 import { MarchingCubesEffect } from './marchingcubes.js';
 import { VATEffect } from './vat.js';
+import { HallucinationEffect } from './hallucination.js';
 
 const mobile = applyMobileProfile();
 const canvas = document.getElementById('scene');
@@ -42,6 +43,11 @@ marching.ensure(scene);
 // single-instance / selected-only pattern as Marching Cubes.
 const vat = new VATEffect({ mobile: mobile.active });
 vat.ensure(scene);
+
+// "Machine Hallucination" (Refik Anadol-style data-pigment flow) for the
+// selected painting. Same single-instance / selected-only pattern.
+const hallucination = new HallucinationEffect({ mobile: mobile.active });
+hallucination.ensure(scene);
 // No fog — keeps the void pure black like the reference gallery view.
 
 // Tight near/far range keeps depth-buffer precision high so distant paintings
@@ -260,6 +266,7 @@ function select(hit) {
     ui.setLensFlareLabel(false);
     ui.setMarchingCubesLabel(false);
     ui.setVatLabel(false);
+    ui.setMachineHallucinationLabel(false);
     applyLook(sd.look());
     return;
   }
@@ -286,9 +293,11 @@ function select(hit) {
     ui.setLensFlareLabel(!!hit.painting.lensFlareOn);
     ui.setMarchingCubesLabel(!!hit.painting.mcOn);
     ui.setVatLabel(!!hit.painting.vatOn);
-    // Feed the selected work's texture to the "artwork" MC + VAT material presets.
+    ui.setMachineHallucinationLabel(!!hit.painting.mhOn);
+    // Feed the selected work's texture to the effects that reuse it.
     marching.setArtworkTexture(hit.painting.material.uniforms.uMap.value);
     vat.setArtworkTexture(hit.painting.material.uniforms.uMap.value);
+    hallucination.setArtworkTexture(hit.painting.material.uniforms.uMap.value);
   } else {
     stateApp.selected = null;
     ui.setSelected({ title: hit.data.title, artist: hit.data.artist, id: '', widthCm: 0, heightCm: 0 });
@@ -296,6 +305,7 @@ function select(hit) {
     ui.setAnimationLabel(false);
     ui.setMarchingCubesLabel(false);
     ui.setVatLabel(false);
+    ui.setMachineHallucinationLabel(false);
   }
   applyLook(sd.look());
 }
@@ -717,6 +727,13 @@ const ui = new UI({
     ui.setVatLabel(p.vatOn);
     if (p.vatOn) vat.setArtworkTexture(p.material.uniforms.uMap.value);
   },
+  onToggleMachineHallucination: () => {
+    const p = stateApp.selected;
+    if (!p) return;
+    p.mhOn = !p.mhOn;
+    ui.setMachineHallucinationLabel(p.mhOn);
+    if (p.mhOn) hallucination.setArtworkTexture(p.material.uniforms.uMap.value);
+  },
   onMirrorToggle: (on) => {
     stateApp.mirrorOn = on;
     if (stateApp.view === 'sphere') ensureGalleryRoom();
@@ -795,6 +812,18 @@ function updateVat(dt) {
   vat.update(dt);
 }
 
+// Machine Hallucination: same gating as Marching Cubes / Houdini FX — only the
+// selected painting in room view with its toggle on. Scene object, updated
+// BEFORE renderer.render.
+function updateHallucination(dt) {
+  const p = stateApp.selected;
+  const show = !!(p && p.mhOn && stateApp.view === 'room');
+  hallucination.setVisible(show);
+  if (!show) return;
+  hallucination.place(p.group, p.sizeM);
+  hallucination.update(dt);
+}
+
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
@@ -816,6 +845,7 @@ function animate() {
   controls.update();
   updateMarchingCubes(dt);
   updateVat(dt);
+  updateHallucination(dt);
   renderer.render(scene, camera);
 
   if (updateLensFlare()) lensFlare.render(renderer, flareElapsed);
@@ -1060,6 +1090,49 @@ function wireVatControls() {
 }
 
 wireVatControls();
+
+// --- Machine Hallucination control panel wiring. Same pattern as above.
+function wireHallucinationControls() {
+  const slider = (id, outId, key, fixed) => {
+    const input = document.getElementById(id);
+    const out = document.getElementById(outId);
+    if (!input) return;
+    const apply = () => {
+      const v = parseFloat(input.value);
+      hallucination.setParam(key, v);
+      if (out) out.textContent = fixed != null ? v.toFixed(fixed) : String(v);
+    };
+    input.addEventListener('input', apply);
+    apply();
+  };
+  const check = (id, key) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    const apply = () => hallucination.setParam(key, input.checked);
+    input.addEventListener('change', apply);
+    apply();
+  };
+
+  const enabledInput = document.getElementById('mh-enabled');
+  if (enabledInput) {
+    const apply = () => hallucination.setEnabled(enabledInput.checked);
+    enabledInput.addEventListener('change', apply);
+    apply();
+  }
+
+  check('mh-playing', 'playing');
+  slider('mh-mix', 'o-mh-mix', 'mix', 2);
+  slider('mh-flow', 'o-mh-flow', 'flow', 2);
+  slider('mh-scale', 'o-mh-scale', 'scale', 2);
+  slider('mh-drift', 'o-mh-drift', 'colorDrift', 2);
+  slider('mh-speed', 'o-mh-speed', 'speed', 2);
+  slider('mh-bright', 'o-mh-bright', 'brightness', 2);
+  slider('mh-size', 'o-mh-size', 'size', 2);
+  slider('mh-offset', 'o-mh-offset', 'offset', 2);
+  slider('mh-opacity', 'o-mh-opacity', 'opacity', 2);
+}
+
+wireHallucinationControls();
 ui._syncLayoutLabels();
 loadCatalog();
 animate();

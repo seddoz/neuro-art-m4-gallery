@@ -132,15 +132,19 @@ export class UI {
     this.mcBtn?.addEventListener('click', () => this.h.onToggleMarchingCubes?.());
     this.vatBtn = document.getElementById('vat-toggle');
     this.vatBtn?.addEventListener('click', () => this.h.onToggleVat?.());
+    this.mhBtn = document.getElementById('mh-toggle');
+    this.mhBtn?.addEventListener('click', () => this.h.onToggleMachineHallucination?.());
     // Effect control panels are revealed only while that effect is on (see
     // setLensFlareLabel / setMarchingCubesLabel / setVatLabel), so the sidebar
     // isn't cluttered with sliders for effects that aren't running.
     this.flareGroup = document.getElementById('lensflare-group');
     this.mcGroup = document.getElementById('marchingcubes-group');
     this.vatGroup = document.getElementById('vat-group');
+    this.mhGroup = document.getElementById('mh-group');
     if (this.flareGroup) this.flareGroup.hidden = true;
     if (this.mcGroup) this.mcGroup.hidden = true;
     if (this.vatGroup) this.vatGroup.hidden = true;
+    if (this.mhGroup) this.mhGroup.hidden = true;
 
     // Per-painting audio guide (EN/PL). Hidden unless the selected work has audio.
     this.audioField = document.getElementById('audio-field');
@@ -312,6 +316,13 @@ export class UI {
     this.vatBtn.textContent = on ? 'Houdini FX Off' : 'Houdini FX On';
     this.vatBtn.classList.toggle('active', !!on);
     if (this.vatGroup) this.vatGroup.hidden = !on;
+  }
+
+  setMachineHallucinationLabel(on) {
+    if (!this.mhBtn) return;
+    this.mhBtn.textContent = on ? 'Machine Hallucination Off' : 'Machine Hallucination On';
+    this.mhBtn.classList.toggle('active', !!on);
+    if (this.mhGroup) this.mhGroup.hidden = !on;
   }
 
   setMirrorLabel(on) {

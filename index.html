@@ -123,6 +123,9 @@
           <div class="field row">
             <button id="vat-toggle" class="ghost">Houdini FX On</button>
           </div>
+          <div class="field row">
+            <button id="mh-toggle" class="ghost">Machine Hallucination On</button>
+          </div>
           <div class="field" id="audio-field" hidden>
             <label>Audio guide</label>
             <div class="field row">
@@ -246,6 +249,33 @@
             <label for="vat-color">Color</label>
             <input type="color" id="vat-color" value="#c0c7d0" />
           </div>
+        </section>
+
+        <section class="panel-group" id="mh-group">
+          <h3>Machine Hallucination</h3>
+          <div class="hint muted">A live, in-browser take on Refik Anadol's "Unsupervised" data-pigment look: the selected painting dissolves into a flowing, morphing field of its own colours. Turn it on with the "Machine Hallucination On" button above, then tune the dream here.</div>
+          <div class="field row">
+            <label class="chk"><input type="checkbox" id="mh-enabled" checked /> Enabled</label>
+            <label class="chk"><input type="checkbox" id="mh-playing" checked /> Animate</label>
+          </div>
+          <div class="field"><label>Dream amount <output id="o-mh-mix">0.85</output></label>
+            <input type="range" id="mh-mix" min="0" max="1" step="0.01" value="0.85" /></div>
+          <div class="field"><label>Flow <output id="o-mh-flow">0.35</output></label>
+            <input type="range" id="mh-flow" min="0" max="1" step="0.01" value="0.35" /></div>
+          <div class="field"><label>Structure <output id="o-mh-scale">2.20</output></label>
+            <input type="range" id="mh-scale" min="0.5" max="6" step="0.1" value="2.2" /></div>
+          <div class="field"><label>Color drift <output id="o-mh-drift">0.25</output></label>
+            <input type="range" id="mh-drift" min="0" max="1" step="0.01" value="0.25" /></div>
+          <div class="field"><label>Speed <output id="o-mh-speed">0.50</output></label>
+            <input type="range" id="mh-speed" min="0" max="3" step="0.05" value="0.5" /></div>
+          <div class="field"><label>Brightness <output id="o-mh-bright">1.00</output></label>
+            <input type="range" id="mh-bright" min="0.3" max="2" step="0.01" value="1" /></div>
+          <div class="field"><label>Size <output id="o-mh-size">1.00</output></label>
+            <input type="range" id="mh-size" min="0.3" max="2.5" step="0.05" value="1" /></div>
+          <div class="field"><label>Front offset (m) <output id="o-mh-offset">0.02</output></label>
+            <input type="range" id="mh-offset" min="0" max="1" step="0.01" value="0.02" /></div>
+          <div class="field"><label>Opacity <output id="o-mh-opacity">1.00</output></label>
+            <input type="range" id="mh-opacity" min="0.1" max="1" step="0.01" value="1" /></div>
         </section>
       </aside>
 
