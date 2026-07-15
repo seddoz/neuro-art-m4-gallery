@@ -11,6 +11,7 @@ import { CONFIG, layoutPageSize } from './config.js';
 import { applyMobileProfile } from './device.js';
 import { LensFlareOverlay } from './lensflare.js';
 import { MarchingCubesEffect } from './marchingcubes.js';
+import { VATEffect } from './vat.js';
 
 const mobile = applyMobileProfile();
 const canvas = document.getElementById('scene');
@@ -36,6 +37,11 @@ lensFlare.setResolution(renderer.domElement.width, renderer.domElement.height);
 // instance; only the selected work with its toggle on ever shows it.
 const marching = new MarchingCubesEffect({ mobile: mobile.active });
 marching.ensure(scene);
+
+// Houdini FX (Vertex Animation Texture) cloth for the selected painting. Same
+// single-instance / selected-only pattern as Marching Cubes.
+const vat = new VATEffect({ mobile: mobile.active });
+vat.ensure(scene);
 // No fog — keeps the void pure black like the reference gallery view.
 
 // Tight near/far range keeps depth-buffer precision high so distant paintings
@@ -252,6 +258,7 @@ function select(hit) {
     ui.setAnimationLabel(false);
     ui.setLensFlareLabel(false);
     ui.setMarchingCubesLabel(false);
+    ui.setVatLabel(false);
     applyLook(sd.look());
     return;
   }
@@ -264,13 +271,16 @@ function select(hit) {
     ui.setAnimationLabel(hit.painting.animated);
     ui.setLensFlareLabel(!!hit.painting.lensFlareOn);
     ui.setMarchingCubesLabel(!!hit.painting.mcOn);
-    // Feed the selected work's texture to the "artwork" MC material preset.
+    ui.setVatLabel(!!hit.painting.vatOn);
+    // Feed the selected work's texture to the "artwork" MC + VAT material presets.
     marching.setArtworkTexture(hit.painting.material.uniforms.uMap.value);
+    vat.setArtworkTexture(hit.painting.material.uniforms.uMap.value);
   } else {
     stateApp.selected = null;
     ui.setSelected({ title: hit.data.title, artist: hit.data.artist, id: '', widthCm: 0, heightCm: 0 });
     ui.setAnimationLabel(false);
     ui.setMarchingCubesLabel(false);
+    ui.setVatLabel(false);
   }
   applyLook(sd.look());
 }
@@ -685,6 +695,13 @@ const ui = new UI({
     ui.setMarchingCubesLabel(p.mcOn);
     if (p.mcOn) marching.setArtworkTexture(p.material.uniforms.uMap.value);
   },
+  onToggleVat: () => {
+    const p = stateApp.selected;
+    if (!p) return;
+    p.vatOn = !p.vatOn;
+    ui.setVatLabel(p.vatOn);
+    if (p.vatOn) vat.setArtworkTexture(p.material.uniforms.uMap.value);
+  },
   onMirrorToggle: (on) => {
     stateApp.mirrorOn = on;
     if (stateApp.view === 'sphere') ensureGalleryRoom();
@@ -742,6 +759,17 @@ function updateMarchingCubes(dt) {
   marching.update(dt);
 }
 
+// Houdini FX cloth: same gating as Marching Cubes — only the selected painting
+// in room view with its toggle on. Scene object, so update BEFORE renderer.render.
+function updateVat(dt) {
+  const p = stateApp.selected;
+  const show = !!(p && p.vatOn && stateApp.view === 'room');
+  vat.setVisible(show);
+  if (!show) return;
+  vat.place(p.group, p.sizeM);
+  vat.update(dt);
+}
+
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
@@ -762,6 +790,7 @@ function animate() {
   if (stateApp.view === 'sphere') sphere.update(dt, camera);
   controls.update();
   updateMarchingCubes(dt);
+  updateVat(dt);
   renderer.render(scene, camera);
 
   if (updateLensFlare()) lensFlare.render(renderer, flareElapsed);
@@ -943,6 +972,63 @@ function wireMarchingCubesControls() {
 }
 
 wireMarchingCubesControls();
+
+// --- Houdini FX (VAT) control panel wiring. Same pattern as above: sliders push
+// a numeric param + update their <output>; select/checkboxes push live. The cloth
+// only renders for the selected painting with its toggle on.
+function wireVatControls() {
+  const slider = (id, outId, key, fixed) => {
+    const input = document.getElementById(id);
+    const out = document.getElementById(outId);
+    if (!input) return;
+    const apply = () => {
+      const v = parseFloat(input.value);
+      vat.setParam(key, v);
+      if (out) out.textContent = fixed != null ? v.toFixed(fixed) : String(v);
+    };
+    input.addEventListener('input', apply);
+    apply();
+  };
+  const check = (id, key) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    const apply = () => vat.setParam(key, input.checked);
+    input.addEventListener('change', apply);
+    apply();
+  };
+
+  const enabledInput = document.getElementById('vat-enabled');
+  if (enabledInput) {
+    const apply = () => vat.setEnabled(enabledInput.checked);
+    enabledInput.addEventListener('change', apply);
+    apply();
+  }
+
+  check('vat-playing', 'playing');
+  check('vat-loop', 'loop');
+  slider('vat-speed', 'o-vat-speed', 'speed', 2);
+  slider('vat-scrub', 'o-vat-scrub', 'scrub', 2);
+  slider('vat-amplitude', 'o-vat-amplitude', 'amplitude', 2);
+  slider('vat-scale', 'o-vat-scale', 'scale', 2);
+  slider('vat-offset', 'o-vat-offset', 'offset', 2);
+  slider('vat-opacity', 'o-vat-opacity', 'opacity', 2);
+
+  const matSelect = document.getElementById('vat-material');
+  if (matSelect) {
+    const apply = () => vat.setParam('material', matSelect.value);
+    matSelect.addEventListener('change', apply);
+    apply();
+  }
+
+  const colorInput = document.getElementById('vat-color');
+  if (colorInput) {
+    const apply = () => vat.setParam('color', colorInput.value);
+    colorInput.addEventListener('input', apply);
+    apply();
+  }
+}
+
+wireVatControls();
 ui._syncLayoutLabels();
 loadCatalog();
 animate();

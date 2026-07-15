@@ -120,6 +120,9 @@
           <div class="field row">
             <button id="mc-toggle" class="ghost">Marching Cubes On</button>
           </div>
+          <div class="field row">
+            <button id="vat-toggle" class="ghost">Houdini FX On</button>
+          </div>
         </section>
 
         <section class="panel-group" id="lensflare-group">
@@ -195,6 +198,39 @@
           <div class="field row lf-color-row">
             <label for="mc-color">Color</label>
             <input type="color" id="mc-color" value="#3b82f6" />
+          </div>
+        </section>
+
+        <section class="panel-group" id="vat-group">
+          <h3>Houdini FX</h3>
+          <div class="hint muted">A Houdini-style Vertex Animation Texture (VAT) baked cloth sim on the selected painting. Turn it on with the "Houdini FX On" button above, then tune playback here. Sample: pinned flag wave.</div>
+          <div class="field row">
+            <label class="chk"><input type="checkbox" id="vat-enabled" checked /> Enabled</label>
+            <label class="chk"><input type="checkbox" id="vat-playing" checked /> Play</label>
+            <label class="chk"><input type="checkbox" id="vat-loop" checked /> Loop</label>
+          </div>
+          <div class="field"><label for="vat-material">Surface</label>
+            <select id="vat-material">
+              <option value="artwork" selected>Artwork</option>
+              <option value="color">Flat color</option>
+              <option value="wire">Wireframe</option>
+            </select>
+          </div>
+          <div class="field"><label>Speed <output id="o-vat-speed">1</output></label>
+            <input type="range" id="vat-speed" min="0" max="3" step="0.05" value="1" /></div>
+          <div class="field"><label>Frame (paused) <output id="o-vat-scrub">0</output></label>
+            <input type="range" id="vat-scrub" min="0" max="1" step="0.01" value="0" /></div>
+          <div class="field"><label>Amplitude <output id="o-vat-amplitude">1</output></label>
+            <input type="range" id="vat-amplitude" min="0" max="3" step="0.05" value="1" /></div>
+          <div class="field"><label>Size <output id="o-vat-scale">1</output></label>
+            <input type="range" id="vat-scale" min="0.3" max="2.5" step="0.05" value="1" /></div>
+          <div class="field"><label>Front offset (m) <output id="o-vat-offset">0.05</output></label>
+            <input type="range" id="vat-offset" min="0" max="2" step="0.05" value="0.05" /></div>
+          <div class="field"><label>Opacity <output id="o-vat-opacity">1</output></label>
+            <input type="range" id="vat-opacity" min="0.1" max="1" step="0.01" value="1" /></div>
+          <div class="field row lf-color-row">
+            <label for="vat-color">Color</label>
+            <input type="color" id="vat-color" value="#c0c7d0" />
           </div>
         </section>
       </aside>

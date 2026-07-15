@@ -130,13 +130,17 @@ export class UI {
     this.flareBtn?.addEventListener('click', () => this.h.onToggleLensFlare?.());
     this.mcBtn = document.getElementById('mc-toggle');
     this.mcBtn?.addEventListener('click', () => this.h.onToggleMarchingCubes?.());
+    this.vatBtn = document.getElementById('vat-toggle');
+    this.vatBtn?.addEventListener('click', () => this.h.onToggleVat?.());
     // Effect control panels are revealed only while that effect is on (see
-    // setLensFlareLabel / setMarchingCubesLabel), so the sidebar isn't cluttered
-    // with sliders for effects that aren't running.
+    // setLensFlareLabel / setMarchingCubesLabel / setVatLabel), so the sidebar
+    // isn't cluttered with sliders for effects that aren't running.
     this.flareGroup = document.getElementById('lensflare-group');
     this.mcGroup = document.getElementById('marchingcubes-group');
+    this.vatGroup = document.getElementById('vat-group');
     if (this.flareGroup) this.flareGroup.hidden = true;
     if (this.mcGroup) this.mcGroup.hidden = true;
+    if (this.vatGroup) this.vatGroup.hidden = true;
     document.getElementById('enter-btn').addEventListener('click', () => this.h.onEnter());
     document.getElementById('exit-btn').addEventListener('click', () => this.h.onExit());
   }
@@ -254,6 +258,13 @@ export class UI {
     this.mcBtn.textContent = on ? 'Marching Cubes Off' : 'Marching Cubes On';
     this.mcBtn.classList.toggle('active', !!on);
     if (this.mcGroup) this.mcGroup.hidden = !on;
+  }
+
+  setVatLabel(on) {
+    if (!this.vatBtn) return;
+    this.vatBtn.textContent = on ? 'Houdini FX Off' : 'Houdini FX On';
+    this.vatBtn.classList.toggle('active', !!on);
+    if (this.vatGroup) this.vatGroup.hidden = !on;
   }
 
   setMirrorLabel(on) {
